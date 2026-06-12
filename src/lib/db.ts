@@ -83,6 +83,12 @@ async function migrate(db: Database) {
 
 function uuid() { return crypto.randomUUID() }
 
+// Notify any open pages that entry data changed so lists refresh without a manual reload
+export const ENTRIES_CHANGED_EVENT = 'entries-changed'
+function notifyEntriesChanged() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(ENTRIES_CHANGED_EVENT))
+}
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 export async function getProfile(): Promise<Profile> {
@@ -144,6 +150,7 @@ export async function insertEntry(
       now, now,
     ]
   )
+  notifyEntriesChanged()
   return (await getEntryById(id))!
 }
 
@@ -190,12 +197,14 @@ export async function updateEntry(
       now, id,
     ]
   )
+  notifyEntriesChanged()
   return (await getEntryById(id))!
 }
 
 export async function deleteEntry(id: string): Promise<void> {
   const db = await getDb()
   await db.execute('DELETE FROM entries WHERE id = $1', [id])
+  notifyEntriesChanged()
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
@@ -225,12 +234,14 @@ export async function insertSession(
     [id, data.entry_id, data.date, data.duration_minutes ?? null, data.progress_logged ?? null, data.notes ?? null, now]
   )
   const rows = await db.select<Session[]>('SELECT * FROM sessions WHERE id = $1', [id])
+  notifyEntriesChanged()
   return rows[0]
 }
 
 export async function deleteSession(id: string): Promise<void> {
   const db = await getDb()
   await db.execute('DELETE FROM sessions WHERE id = $1', [id])
+  notifyEntriesChanged()
 }
 
 // ── Photos ────────────────────────────────────────────────────────────────────

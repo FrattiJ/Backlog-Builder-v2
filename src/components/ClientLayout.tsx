@@ -24,7 +24,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#080a0e',
+          background: 'var(--bg-base)',
           flexDirection: 'column',
           gap: 16,
         }}
@@ -32,7 +32,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {/* Blueprint grid */}
         <div style={{
           position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-          backgroundImage: 'linear-gradient(#1a2a3a 1px, transparent 1px), linear-gradient(90deg, #1a2a3a 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(var(--border-dim) 1px, transparent 1px), linear-gradient(90deg, var(--border-dim) 1px, transparent 1px)',
           backgroundSize: '40px 40px', opacity: 0.25,
         }} />
         <div
@@ -44,7 +44,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             animation: 'status-blink 1s ease-in-out infinite',
           }}
         />
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.2em' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.2em' }}>
           INITIALIZING SYSTEMS…
         </span>
       </div>
@@ -52,7 +52,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#080a0e', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', position: 'relative' }}>
 
       {/* ── Blueprint grid overlay ────────────────────────────────────────── */}
       <div
@@ -60,7 +60,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         style={{
           position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
           backgroundImage:
-            'linear-gradient(#1a2a3a 1px, transparent 1px), linear-gradient(90deg, #1a2a3a 1px, transparent 1px)',
+            'linear-gradient(var(--border-dim) 1px, transparent 1px), linear-gradient(90deg, var(--border-dim) 1px, transparent 1px)',
           backgroundSize: '40px 40px',
           opacity: 0.25,
         }}
@@ -83,8 +83,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       >
         <circle cx="400" cy="0" r="200" stroke="#7c3aed" strokeWidth="1" />
         <circle cx="400" cy="0" r="280" stroke="#0891b2" strokeWidth="0.5" />
-        <path d="M400,0 L200,200" stroke="#4a6a8a" strokeWidth="0.5" />
-        <path d="M400,0 L320,80" stroke="#4a6a8a" strokeWidth="0.5" />
+        <path d="M400,0 L200,200" stroke="var(--text-dim)" strokeWidth="0.5" />
+        <path d="M400,0 L320,80" stroke="var(--text-dim)" strokeWidth="0.5" />
       </svg>
       <svg
         aria-hidden

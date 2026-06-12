@@ -81,11 +81,11 @@ export default function SettingsPage() {
   }
 
   const inp = {
-    background: '#080a0e',
-    border: '1px solid #1a2a3a',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-dim)',
     borderLeft: '2px solid #7c3aed66',
     padding: '8px 12px',
-    color: '#f0f4f8',
+    color: 'var(--text-hi)',
     fontSize: 14,
     fontFamily: 'var(--font-mono)',
     letterSpacing: '0.04em',
@@ -96,25 +96,25 @@ export default function SettingsPage() {
   return (
     <div style={{ padding: 32, maxWidth: 600, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.2em', marginBottom: 4 }}>SYSTEM / SETTINGS</p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 900, color: '#f0f4f8', letterSpacing: '0.08em', margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.2em', marginBottom: 4 }}>SYSTEM / SETTINGS</p>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 900, color: 'var(--text-hi)', letterSpacing: '0.08em', margin: 0 }}>
           SETTINGS
         </h1>
       </div>
 
       {/* Profile Panel */}
       <div style={{ padding: '1px', clipPath: CLIP, background: '#7c3aed55', marginBottom: 24 }}>
-        <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', padding: 20, display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
+        <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
           {/* Accent corner notch */}
           <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: '#7c3aed', clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
 
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#f0f4f8', margin: 0, letterSpacing: '0.1em' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-hi)', margin: 0, letterSpacing: '0.1em' }}>
             PROFILE
           </h2>
 
           {/* Avatar Section */}
           <div>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 12, margin: 0 }}>AVATAR</p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 12, margin: 0 }}>AVATAR</p>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               {avatarUrl ? (
                 <div style={{ position: 'relative' }}>
@@ -129,7 +129,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
               ) : (
-                <div style={{ width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d1117', border: '1px solid #7c3aed44' }}>
+                <div style={{ width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-card)', border: '1px solid #7c3aed44' }}>
                   <User size={32} style={{ color: '#7c3aed' }} />
                 </div>
               )}
@@ -167,7 +167,7 @@ export default function SettingsPage() {
                   <Upload size={11} />
                   {uploading ? 'UPLOADING…' : 'CHOOSE IMAGE'}
                 </button>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', marginTop: 8, margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', marginTop: 8, margin: 0 }}>
                   JPG, PNG recommended. Max 200×200 after compression.
                 </p>
               </div>
@@ -176,7 +176,7 @@ export default function SettingsPage() {
 
           {/* Username */}
           <div>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>DISPLAY NAME</p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>DISPLAY NAME</p>
             <input
               type="text"
               value={username}
@@ -189,7 +189,7 @@ export default function SettingsPage() {
 
           {/* Bio */}
           <div>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>BIO</p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>BIO</p>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
@@ -247,16 +247,16 @@ export default function SettingsPage() {
       </div>
 
       {/* Data Info Panel */}
-      <div style={{ padding: '1px', clipPath: CLIP, background: '#4a6a8a55' }}>
-        <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
+      <div style={{ padding: '1px', clipPath: CLIP, background: 'color-mix(in srgb, var(--text-dim) 33%, transparent)' }}>
+        <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
           {/* Accent corner notch */}
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: '#4a6a8a', clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: 'var(--text-dim)', clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
 
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#f0f4f8', margin: 0, marginBottom: 12, letterSpacing: '0.1em' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-hi)', margin: 0, marginBottom: 12, letterSpacing: '0.1em' }}>
             YOUR DATA
           </h2>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.04em', lineHeight: 1.6, margin: 0 }}>
-            All your data is stored locally on your device in a SQLite database. Nothing is sent to any server. Your data lives in your OS app data directory under <span style={{ background: '#080a0e', padding: '2px 6px', borderRadius: 2, color: '#f0f4f8', fontFamily: 'monospace' }}>Hobbylog/hobbyvault.db</span>.
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.04em', lineHeight: 1.6, margin: 0 }}>
+            All your data is stored locally on your device in a SQLite database. Nothing is sent to any server. Your data lives in your OS app data directory under <span style={{ background: 'var(--bg-base)', padding: '2px 6px', borderRadius: 2, color: 'var(--text-hi)', fontFamily: 'monospace' }}>Hobbylog/hobbyvault.db</span>.
           </p>
         </div>
       </div>

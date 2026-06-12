@@ -5,14 +5,15 @@
   --font-display: 'Orbitron', sans-serif;
   --font-mono:    'Share Tech Mono', monospace;
 
-  --bg-base:     #2d3d4d;
-  --bg-card:     #334555;
-  --bg-panel:    #2e3a45;
-  --border-dim:  #415a70;
+  --bg-base:     #080a0e;
+  --bg-card:     #0d1117;
+  --bg-panel:    #090c10;
+  --border-dim:  #1a2a3a;
   --text-hi:     #f0f4f8;
-  --text-mid:    #bfc3cd;
-  --text-dim:    #7a9aba;
-  --text-mute:   #5a6a7a;
+  --text-mid:    #9ca3af;
+  --text-dim:    #4a6a8a;
+  --text-mute:   #2a3a4a;
+  --overlay:     rgba(8, 10, 14, 0.92);
 
   --clip-card: polygon(14px 0%, 100% 0%, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0% 100%, 0% 14px);
 }
@@ -34,7 +35,7 @@ body {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg-base); }
 ::-webkit-scrollbar-thumb { background: var(--border-dim); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #5a7a9a; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
 /* ── Typography helpers ─────────────────────────────────────────────────────── */
 .font-display { font-family: var(--font-display); }
@@ -87,14 +88,14 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0.05em; }
 .mech-skeleton {
   position: relative;
   overflow: hidden;
-  background: #334555;
+  background: var(--bg-card);
 }
 .mech-skeleton::after {
   content: '';
   position: absolute;
   inset: 0;
   width: 40%;
-  background: linear-gradient(90deg, transparent, rgba(74, 106, 138, 0.2), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-dim) 20%, transparent), transparent);
   animation: scan-line 1.6s ease-in-out infinite;
 }
 

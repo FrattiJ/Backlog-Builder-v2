@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Search, Plus } from 'lucide-react'
 import { insertEntry } from '@/lib/db'
 import { searchIGDB, searchTMDB, fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, searchOpenLibrary, searchJikan } from '@/lib/apiKeys'
@@ -100,6 +100,14 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
     }
   }
 
+  // Search-as-you-type: debounce 450ms, minimum 3 characters
+  useEffect(() => {
+    if (!apiEndpoint || query.trim().length < 3) return
+    const t = setTimeout(() => { handleSearch() }, 450)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query])
+
   async function selectResult(r: SearchResult) {
     setSelected(r)
     setTitle(r.title)
@@ -131,6 +139,7 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
       if (details.creator) r.creator = details.creator
       if (details.networks) r.networks = details.networks
       if (details.rating) r.rating = details.rating
+      if (details.streaming) r.streaming = details.streaming
     }
 
     // Movie runtime (in minutes)
@@ -141,6 +150,7 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
       if (details.director) r.director = details.director
       if (details.studios) r.studios = details.studios
       if (details.rating) r.rating = details.rating
+      if (details.streaming) r.streaming = details.streaming
     }
 
     // Games: time-to-beat and additional metadata
@@ -202,11 +212,11 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
   }
 
   const inp: React.CSSProperties = {
-    background: '#080a0e',
-    border: '1px solid #1a2a3a',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-dim)',
     borderLeft: `2px solid ${effectiveAccent}66`,
     padding: '8px 12px',
-    color: '#f0f4f8',
+    color: 'var(--text-hi)',
     fontSize: 14,
     fontFamily: 'var(--font-mono)',
     letterSpacing: '0.04em',
@@ -215,7 +225,7 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
   }
 
   const Label = ({ children }: { children: string }) => (
-    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6 }}>
+    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6 }}>
       {children}
     </p>
   )
@@ -224,9 +234,9 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
     <button onClick={onClick} style={{
       padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 14, letterSpacing: '0.1em',
       background: active ? `${a}22` : 'transparent',
-      border: `1px solid ${active ? a : '#1a2a3a'}`,
-      borderLeft: active ? `2px solid ${a}` : '1px solid #1a2a3a',
-      color: active ? a : '#4a6a8a', cursor: 'pointer', transition: 'all 0.12s ease',
+      border: `1px solid ${active ? a : 'var(--border-dim)'}`,
+      borderLeft: active ? `2px solid ${a}` : '1px solid var(--border-dim)',
+      color: active ? a : 'var(--text-dim)', cursor: 'pointer', transition: 'all 0.12s ease',
     }}>
       {children}
     </button>
@@ -235,29 +245,29 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
   return (
     <div
       onClick={(e) => { if (e.currentTarget === e.target) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(8,10,14,0.92)', cursor: 'pointer' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'var(--overlay)', cursor: 'pointer' }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{ width: '100%', maxWidth: 520, padding: '1px', clipPath: CLIP, background: `${effectiveAccent}55`, display: 'flex', flexDirection: 'column', maxHeight: '90vh', overflow: 'hidden', cursor: 'default' }}
       >
-        <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
           {/* Accent corner notch */}
           <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: effectiveAccent, clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
 
         {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #1a2a3a' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border-dim)' }}>
           <div>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.2em', marginBottom: 2 }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.2em', marginBottom: 2 }}>
               NEW RECORD /
             </p>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: '#f0f4f8', letterSpacing: '0.1em', margin: 0 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-hi)', letterSpacing: '0.1em', margin: 0 }}>
               {(hobbyId === 'books' ? BOOK_SUBTYPE_MAP[bookSubtype].label : hobby.label).toUpperCase()}
             </h2>
           </div>
-          <button onClick={onClose} style={{ color: '#4a6a8a', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#f0f4f8')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#4a6a8a')}>
+          <button onClick={onClose} style={{ color: 'var(--text-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-hi)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}>
             <X size={16} />
           </button>
         </div>
@@ -300,11 +310,11 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
               </div>
 
               {results.length > 0 && (
-                <div style={{ marginTop: 6, border: '1px solid #1a2a3a', borderLeft: `2px solid ${effectiveAccent}44`, background: '#080a0e' }}>
+                <div style={{ marginTop: 6, border: '1px solid var(--border-dim)', borderLeft: `2px solid ${effectiveAccent}44`, background: 'var(--bg-base)', maxHeight: 300, overflowY: 'auto' }}>
                   {results.map((r, ri) => (
                     <button key={r.id} onClick={() => selectResult(r)} style={{
                       display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 12px', textAlign: 'left',
-                      background: 'transparent', border: 'none', borderBottom: ri < results.length - 1 ? '1px solid #1a2a3a' : 'none',
+                      background: 'transparent', border: 'none', borderBottom: ri < results.length - 1 ? '1px solid var(--border-dim)' : 'none',
                       cursor: 'pointer', transition: 'background 0.1s ease',
                     }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = `${effectiveAccent}0e`)}
@@ -315,10 +325,10 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
                         </div>
                       )}
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: '#f0f4f8', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{r.title}</p>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: 'var(--text-hi)', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{r.title}</p>
                         <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
-                          {r.release_year != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>{String(r.release_year)}</span>}
-                          {r.author != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>{String(r.author)}</span>}
+                          {r.release_year != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)' }}>{String(r.release_year)}</span>}
+                          {r.author != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)' }}>{String(r.author)}</span>}
                           {bookSubtype === 'manga' && (
                             <>
                               {r.chapters != null ? (
@@ -356,7 +366,16 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
             <Label>OPERATIONAL STATUS</Label>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {(Object.entries(STATUS_LABELS) as [EntryStatus, string][]).map(([val, label]) => (
-                <MechBtn key={val} active={status === val} accent={effectiveAccent} onClick={() => setStatus(val)}>
+                <MechBtn key={val} active={status === val} accent={effectiveAccent} onClick={() => {
+                  setStatus(val)
+                  // Completing an entry fills progress to the total (editable before saving)
+                  if (val === 'completed') {
+                    const total = hobbyId === 'games' ? timeToBeat : progressTotal
+                    if (total && (parseFloat(progressCurrent) || 0) < parseFloat(total)) {
+                      setProgressCurrent(total)
+                    }
+                  }
+                }}>
                   {label.toUpperCase()}
                 </MechBtn>
               ))}
@@ -408,7 +427,7 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
                   )}
                   {igdbTTB.main !== null && (
                     <MechBtn active={timeToBeat === String(igdbTTB.main)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(igdbTTB.main))}>
-                      MAIN — {igdbTTB.main}H
+                      AVG PLAYTIME — {igdbTTB.main}H
                     </MechBtn>
                   )}
                   {igdbTTB.complete !== null && (
@@ -452,10 +471,10 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
         </div>
 
         {/* ── Footer ── */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid #1a2a3a' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid var(--border-dim)' }}>
           <button onClick={onClose} style={{
-            padding: '8px 16px', background: 'transparent', border: '1px solid #1a2a3a',
-            color: '#4a6a8a', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700,
+            padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-dim)',
+            color: 'var(--text-dim)', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700,
             letterSpacing: '0.1em', cursor: 'pointer',
           }}>
             ABORT

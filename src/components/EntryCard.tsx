@@ -19,7 +19,9 @@ export default function EntryCard({ entry, index = 0 }: { entry: Entry; index?: 
     ? BOOK_SUBTYPE_MAP[entry.book_subtype]?.progressUnit ?? hobby?.progressUnit
     : hobby?.progressUnit
 
-  const effectiveProgressTotal = entry.progress_total || (entry.hobby_category === 'movies' ? 100 : null)
+  const effectiveProgressTotal = entry.progress_total
+    || (entry.hobby_category === 'movies' ? 100 : null)
+    || (entry.hobby_category === 'games' && entry.metadata?.time_to_beat ? Number(entry.metadata.time_to_beat) : null)
   const progress = effectiveProgressTotal
     ? Math.min(100, Math.round((entry.progress_current / effectiveProgressTotal) * 100))
     : null
@@ -33,7 +35,7 @@ export default function EntryCard({ entry, index = 0 }: { entry: Entry; index?: 
             width: 52,
             height: 74,
             flexShrink: 0,
-            background: '#0a0e14',
+            background: 'var(--bg-base)',
             border: `1px solid ${accent}33`,
             overflow: 'hidden',
             position: 'relative',
@@ -65,7 +67,7 @@ export default function EntryCard({ entry, index = 0 }: { entry: Entry; index?: 
             fontFamily: 'var(--font-display)',
             fontSize: 14,
             fontWeight: 700,
-            color: '#f0f4f8',
+            color: 'var(--text-hi)',
             letterSpacing: '0.04em',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -117,7 +119,7 @@ export default function EntryCard({ entry, index = 0 }: { entry: Entry; index?: 
           {/* Progress bar */}
           {progress !== null && (
             <div>
-              <div style={{ height: 3, background: '#1a2a3a', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ height: 3, background: 'var(--border-dim)', position: 'relative', overflow: 'hidden' }}>
                 <div style={{
                   position: 'absolute', left: 0, top: 0, bottom: 0,
                   width: `${progress}%`,
@@ -126,14 +128,14 @@ export default function EntryCard({ entry, index = 0 }: { entry: Entry; index?: 
                 }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)' }}>
                   {(() => {
                     const isAudiobook = entry.hobby_category === 'books' && entry.book_subtype === 'audiobook'
                     const isMovie = entry.hobby_category === 'movies'
                     if (isAudiobook || isMovie) {
                       return ''
                     }
-                    return `${entry.progress_current}/${entry.progress_total} ${progressUnit}`
+                    return `${entry.progress_current}/${effectiveProgressTotal} ${progressUnit}`
                   })()}
                 </span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: accent }}>

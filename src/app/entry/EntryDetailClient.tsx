@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Star, Plus, Trash2, ArrowLeft, Save, ExternalLink, Clock } from 'lucide-react'
+import { Star, Plus, Trash2, ArrowLeft, Save, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { getEntryById, updateEntry, deleteEntry, getSessionsByEntry, insertSession, deleteSession, getPhotosByEntry, type Photo } from '@/lib/db'
 import PhotoGallery from '@/components/PhotoGallery'
@@ -63,20 +63,22 @@ export default function EntryDetailClient({ id }: { id: string }) {
   useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ padding: 32, textAlign: 'center' }}>Loading…</div>
-  if (!entry) return <div style={{ padding: 32, textAlign: 'center', color: '#4a6a8a', fontFamily: 'var(--font-mono)' }}>Entry not found.</div>
+  if (!entry) return <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>Entry not found.</div>
 
   const hobby = HOBBY_MAP[entry.hobby_category]
-  const effectiveProgressTotal = entry.progress_total || (entry.hobby_category === 'movies' ? 100 : null)
+  const effectiveProgressTotal = entry.progress_total
+    || (entry.hobby_category === 'movies' ? 100 : null)
+    || (entry.hobby_category === 'games' && entry.metadata?.time_to_beat ? Number(entry.metadata.time_to_beat) : null)
   const progress = effectiveProgressTotal
-    ? Math.round(((parseInt(progressCurrent) || 0) / effectiveProgressTotal) * 100)
+    ? Math.round(((parseFloat(progressCurrent) || 0) / effectiveProgressTotal) * 100)
     : null
 
   const inp = {
-    background: '#080a0e',
-    border: '1px solid #1a2a3a',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-dim)',
     borderLeft: `2px solid ${hobby.accent}66`,
     padding: '8px 12px',
-    color: '#f0f4f8',
+    color: 'var(--text-hi)',
     fontSize: 14,
     fontFamily: 'var(--font-mono)',
     letterSpacing: '0.04em',
@@ -159,14 +161,19 @@ export default function EntryDetailClient({ id }: { id: string }) {
     setSessionEpisode('')
 
     // Auto-update progress if pages/chapters logged or episodes logged
-    const progressIncrement = progressLogged || durationMinutes
+    // Games track progress in hours, so convert session minutes to hours
+    let progressIncrement = progressLogged || durationMinutes
+    if (entry.hobby_category === 'games' && !progressLogged && durationMinutes) {
+      progressIncrement = Math.round((durationMinutes / 60) * 10) / 10
+    }
     const updateData: Record<string, unknown> = {}
 
     if (progressIncrement && progressIncrement > 0) {
-      const newProgress = Math.min(
-        (parseInt(progressCurrent) || 0) + progressIncrement,
+      const raw = Math.min(
+        (parseFloat(progressCurrent) || 0) + progressIncrement,
         effectiveProgressTotal || Number.MAX_SAFE_INTEGER
       )
+      const newProgress = Math.round(raw * 10) / 10
       setProgressCurrent(newProgress.toString())
       updateData.progress_current = newProgress
     }
@@ -250,11 +257,13 @@ export default function EntryDetailClient({ id }: { id: string }) {
         if (details.director) metadata.director = details.director
         if (details.studios) metadata.studios = details.studios
         if (details.rating) metadata.rating = details.rating
+        if (details.streaming) metadata.streaming = details.streaming
       } else if (entry.hobby_category === 'tv') {
         const details = await fetchTMDBTVDetails(entry.external_id)
         if (details.creator) metadata.creator = details.creator
         if (details.networks) metadata.networks = details.networks
         if (details.rating) metadata.rating = details.rating
+        if (details.streaming) metadata.streaming = details.streaming
       } else if (entry.hobby_category === 'books') {
         if (entry.book_subtype === 'manga') {
           const details = await fetchJikanDetails(entry.external_id)
@@ -292,14 +301,14 @@ export default function EntryDetailClient({ id }: { id: string }) {
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: 1000, margin: '0 auto', cursor: 'default' }}
       >
-        <Link href={HOBBY_PATHS[entry.hobby_category]} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, marginBottom: 24, color: '#4a6a8a', textDecoration: 'none', transition: 'color 0.15s ease' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#f0f4f8')} onMouseLeave={(e) => (e.currentTarget.style.color = '#4a6a8a')}>
+        <Link href={HOBBY_PATHS[entry.hobby_category]} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, marginBottom: 24, color: 'var(--text-dim)', textDecoration: 'none', transition: 'color 0.15s ease' }} onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-hi)')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}>
           <ArrowLeft size={14} /> Back to {hobby.pluralLabel.toUpperCase()}
         </Link>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 32 }}>
         {/* Cover */}
         <div>
-          <div style={{ aspectRatio: '2/3', marginBottom: 16, background: '#0d1117', border: `1px solid ${hobby.accent}44`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ aspectRatio: '2/3', marginBottom: 16, background: 'var(--bg-card)', border: `1px solid ${hobby.accent}44`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {entry.cover_url ? (
               <img src={entry.cover_url} alt={entry.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
@@ -310,8 +319,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
           </div>
 
           {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-            <div style={{ background: '#0d1117', border: `1px solid ${hobby.accent}33`, borderLeft: `3px solid ${hobby.accent}`, padding: 12 }}>
-              {(['genres', 'release_year', 'author', 'publisher', 'volumes', 'chapters', 'rating', 'platforms', 'developers', 'studios', 'director', 'networks', 'creator'] as const).map((key) => {
+            <div style={{ background: 'var(--bg-card)', border: `1px solid ${hobby.accent}33`, borderLeft: `3px solid ${hobby.accent}`, padding: 12 }}>
+              {(['genres', 'release_year', 'author', 'publisher', 'volumes', 'chapters', 'rating', 'platforms', 'developers', 'studios', 'director', 'networks', 'creator', 'streaming'] as const).map((key) => {
                 const val = entry.metadata[key]
                 if (val == null || val === '') return null
                 const displayKey = key
@@ -321,8 +330,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
                   .replace(/^./, (c) => c.toUpperCase())
                 return (
                   <div key={key} style={{ marginBottom: 8 }}>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>{displayKey}</p>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#f0f4f8', margin: 0, marginTop: 2, lineHeight: 1.4 }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>{displayKey}</p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-hi)', margin: 0, marginTop: 2, lineHeight: 1.4 }}>
                       {typeof val === 'number' && key === 'rating' ? `${val.toFixed(1)}/10` : String(val)}
                     </p>
                   </div>
@@ -336,8 +345,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, padding: '2px 8px', background: `${hobby.accent}22`, color: hobby.accent, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{hobby.label}</span>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 900, color: '#f0f4f8', margin: 0, marginTop: 12, letterSpacing: '0.08em' }}>{entry.title}</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 900, color: 'var(--text-hi)', margin: 0, marginTop: 12, letterSpacing: '0.08em' }}>{entry.title}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)' }}>
               {entry.date_started && <span>STARTED {entry.date_started}</span>}
               {entry.date_completed && <span>COMPLETED {entry.date_completed}</span>}
             </div>
@@ -345,19 +354,30 @@ export default function EntryDetailClient({ id }: { id: string }) {
 
           {/* Edit panel */}
           <div style={{ padding: '1px', clipPath: CLIP, background: `${hobby.accent}55` }}>
-            <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', padding: 20, display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
+            <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
               {/* Accent corner notch */}
               <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: hobby.accent, clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
-              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#f0f4f8', margin: 0, letterSpacing: '0.1em' }}>EDIT ENTRY</h2>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-hi)', margin: 0, letterSpacing: '0.1em' }}>EDIT ENTRY</h2>
 
             <div>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>OPERATIONAL STATUS</p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>OPERATIONAL STATUS</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {(Object.entries(STATUS_LABELS) as [EntryStatus, string][]).map(([val, label]) => {
                   const color = STATUS_COLORS[val]
                   const active = status === val
                   return (
-                    <button key={val} onClick={() => setStatus(val)}
+                    <button key={val} onClick={() => {
+                      setStatus(val)
+                      // Completing an entry fills progress to the total (editable before saving)
+                      if (val === 'completed') {
+                        const total = entry.hobby_category === 'games'
+                          ? (parseFloat(timeToBeat) || effectiveProgressTotal)
+                          : effectiveProgressTotal
+                        if (total && (parseFloat(progressCurrent) || 0) < total) {
+                          setProgressCurrent(String(total))
+                        }
+                      }
+                    }}
                       style={{
                         padding: '5px 12px',
                         fontFamily: 'var(--font-mono)',
@@ -365,9 +385,9 @@ export default function EntryDetailClient({ id }: { id: string }) {
                         letterSpacing: '0.12em',
                         textTransform: 'uppercase',
                         background: active ? `${color}22` : 'transparent',
-                        border: `1px solid ${active ? color : '#1a2a3a'}`,
-                        borderLeft: active ? `2px solid ${color}` : '1px solid #1a2a3a',
-                        color: active ? color : '#4a6a8a',
+                        border: `1px solid ${active ? color : 'var(--border-dim)'}`,
+                        borderLeft: active ? `2px solid ${color}` : '1px solid var(--border-dim)',
+                        color: active ? color : 'var(--text-dim)',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                       }}>
@@ -398,31 +418,55 @@ export default function EntryDetailClient({ id }: { id: string }) {
                   ? formatMinutes(effectiveProgressTotal)
                   : effectiveProgressTotal
 
+                const isGame = entry.hobby_category === 'games'
+
                 return (
                   <>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>
-                      {isAudiobook ? 'AUDIOBOOK DURATION' : isMovie ? 'WATCH TIME' : progressConfig.progressLabel.toUpperCase()} ({isAudiobook || isMovie ? 'MIN' : progressConfig.progressUnit.toUpperCase()})
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', margin: 0 }}>
+                        {isAudiobook ? 'AUDIOBOOK DURATION' : isMovie ? 'WATCH TIME' : progressConfig.progressLabel.toUpperCase()} ({isAudiobook || isMovie ? 'MIN' : progressConfig.progressUnit.toUpperCase()})
+                      </p>
+                      {isGame && (
+                        <button
+                          onClick={() => openHLTB(entry.title)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, padding: '4px 10px', color: '#7c3aed', background: 'rgba(124,58,237,0.2)', border: '1px solid #7c3aed66', fontFamily: 'var(--font-mono)', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.filter = 'drop-shadow(0 0 4px #7c3aed44)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+                        >
+                          HLTB <ExternalLink size={10} />
+                        </button>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <input type="number" min={0} value={progressCurrent}
                         onChange={(e) => setProgressCurrent(e.target.value)}
                         placeholder={isAudiobook || isMovie ? 'e.g. 143 for runtime' : '0'}
                         style={{ ...inp, width: 100 }}
                       />
-                      {totalDisplay && (
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>
+                      {isGame ? (
+                        <>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)' }}>/</span>
+                          <input type="number" min={0} step={0.5} value={timeToBeat}
+                            onChange={(e) => setTimeToBeat(e.target.value)}
+                            placeholder="TOTAL"
+                            style={{ ...inp, width: 100 }}
+                          />
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)' }}>HRS TO BEAT</span>
+                        </>
+                      ) : totalDisplay && (
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)' }}>
                           / {totalDisplay}
                         </span>
                       )}
                       {(isAudiobook || isMovie) && currentDisplay && (
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', marginLeft: 8 }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-dim)', marginLeft: 8 }}>
                           ({currentDisplay})
                         </span>
                       )}
                     </div>
                     {progress !== null && (
                       <div style={{ marginTop: 12 }}>
-                        <div style={{ height: 3, background: '#1a2a3a', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ height: 3, background: 'var(--border-dim)', position: 'relative', overflow: 'hidden' }}>
                           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(progress, 100)}%`, background: `linear-gradient(to right, ${hobby.accent}, ${hobby.accent}cc)`, transition: 'width 0.6s ease' }} />
                         </div>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: hobby.accent, marginTop: 6, margin: 0 }}>{progress}%</p>
@@ -436,61 +480,22 @@ export default function EntryDetailClient({ id }: { id: string }) {
             {/* Season & Episode — TV shows only */}
             {entry.hobby_category === 'tv' && (
               <div>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>CURRENT POSITION</p>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>CURRENT POSITION</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
-                    <label style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>SEASON</label>
+                    <label style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-dim)', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>SEASON</label>
                     <input type="number" min={1} value={currentSeason} onChange={(e) => setCurrentSeason(e.target.value)} placeholder="e.g. 2" style={inp} />
                   </div>
                   <div>
-                    <label style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>EPISODE</label>
+                    <label style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-dim)', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>EPISODE</label>
                     <input type="number" min={1} value={currentEpisode} onChange={(e) => setCurrentEpisode(e.target.value)} placeholder="e.g. 5" style={inp} />
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Time to Beat — games only */}
-            {entry.hobby_category === 'games' && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Clock size={11} />
-                    TIME TO BEAT (HOURS)
-                  </p>
-                  <button
-                    onClick={() => openHLTB(entry.title)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, padding: '4px 10px', color: '#7c3aed', background: 'rgba(124,58,237,0.2)', border: '1px solid #7c3aed66', fontFamily: 'var(--font-mono)', cursor: 'pointer', transition: 'all 0.15s ease' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.filter = 'drop-shadow(0 0 4px #7c3aed44)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
-                  >
-                    HLTB <ExternalLink size={10} />
-                  </button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <input type="number" min={0} step={0.5} value={timeToBeat}
-                    onChange={(e) => setTimeToBeat(e.target.value)}
-                    placeholder="e.g. 25"
-                    style={{ ...inp, width: 100 }}
-                  />
-                  {timeToBeat && progressCurrent && (
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>
-                      {progressCurrent}H OF {timeToBeat}H ({Math.min(100, Math.round((parseFloat(progressCurrent) / parseFloat(timeToBeat)) * 100))}%)
-                    </span>
-                  )}
-                </div>
-                {timeToBeat && progressCurrent && (
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ height: 3, background: '#1a2a3a', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${Math.min(100, Math.round((parseFloat(progressCurrent) / parseFloat(timeToBeat)) * 100))}%`, background: `linear-gradient(to right, ${hobby.accent}, ${hobby.accent}cc)`, transition: 'width 0.6s ease' }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             <div>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>RATING (1–10)</p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>RATING (1–10)</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <input type="number" min={1} max={10} step={0.5} value={rating}
                   onChange={(e) => setRating(e.target.value)}
@@ -507,14 +512,14 @@ export default function EntryDetailClient({ id }: { id: string }) {
             </div>
 
             <div>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>FIELD NOTES / REVIEW</p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>FIELD NOTES / REVIEW</p>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
                 placeholder="PERSONAL NOTES, REVIEW…"
                 style={{ ...inp, resize: 'none', width: '100%' }}
               />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 8, borderTop: '1px solid #1a2a3a', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border-dim)', flexWrap: 'wrap' }}>
               <button onClick={handleDeleteEntry}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#f87171', background: 'rgba(239,68,68,0.15)', border: '1px solid #ef444466', cursor: 'pointer', transition: 'all 0.15s ease' }}
                 onMouseEnter={(e) => (e.currentTarget.style.filter = 'drop-shadow(0 0 6px #ef444444)')}
@@ -525,8 +530,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
               <div style={{ display: 'flex', gap: 8, flex: 1, justifyContent: 'flex-end', minWidth: 300 }}>
                 {entry?.external_id && (entry.hobby_category === 'games' || entry.hobby_category === 'movies' || entry.hobby_category === 'tv' || entry.hobby_category === 'books') && (
                   <button onClick={handleUpdateDetails} disabled={updatingDetails}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#9ca3af', background: 'rgba(156,163,175,0.15)', border: '1px solid #9ca3af66', cursor: updatingDetails ? 'not-allowed' : 'pointer', opacity: updatingDetails ? 0.6 : 1, transition: 'all 0.15s ease' }}
-                    onMouseEnter={(e) => { if (!updatingDetails) e.currentTarget.style.filter = 'drop-shadow(0 0 6px #9ca3af44)' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--text-mid)', background: 'color-mix(in srgb, var(--text-mid) 15%, transparent)', border: '1px solid color-mix(in srgb, var(--text-mid) 40%, transparent)', cursor: updatingDetails ? 'not-allowed' : 'pointer', opacity: updatingDetails ? 0.6 : 1, transition: 'all 0.15s ease' }}
+                    onMouseEnter={(e) => { if (!updatingDetails) e.currentTarget.style.filter = 'drop-shadow(0 0 6px color-mix(in srgb, var(--text-mid) 27%, transparent))' }}
                     onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
                   >
                     <ExternalLink size={11} />
@@ -549,7 +554,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
           {/* Photo Gallery — Projects & Art only */}
           {(entry.hobby_category === 'gundams' || entry.hobby_category === 'art') && (
             <div style={{ padding: '1px', clipPath: CLIP, background: `${hobby.accent}55` }}>
-              <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
+              <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
                 {/* Accent corner notch */}
                 <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: hobby.accent, clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
                 <PhotoGallery
@@ -564,54 +569,54 @@ export default function EntryDetailClient({ id }: { id: string }) {
 
           {/* Session Log */}
           <div style={{ padding: '1px', clipPath: CLIP, background: `${hobby.accent}55` }}>
-            <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
+            <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
               {/* Accent corner notch */}
               <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: hobby.accent, clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
-              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#f0f4f8', margin: 0, marginBottom: 16, letterSpacing: '0.1em' }}>SESSION LOG</h2>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-hi)', margin: 0, marginBottom: 16, letterSpacing: '0.1em' }}>SESSION LOG</h2>
 
-            <div style={{ background: '#080a0e', border: `1px solid #1a2a3a`, borderLeft: `2px solid ${hobby.accent}66`, padding: 12, marginBottom: 16 }}>
+            <div style={{ background: 'var(--bg-base)', border: `1px solid var(--border-dim)`, borderLeft: `2px solid ${hobby.accent}66`, padding: 12, marginBottom: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: entry.hobby_category === 'tv' ? '1fr 0.5fr 0.5fr 0.5fr 0.5fr' : entry.hobby_category === 'books' ? '1fr 0.5fr 0.5fr 1fr' : '1fr 0.5fr 0.5fr', gap: 12, marginBottom: 12 }}>
                 <div>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>DATE</p>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>DATE</p>
                   <input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} style={inp} />
                 </div>
                 {entry.hobby_category === 'tv' ? (
                   <>
                     <div>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>SEASON</p>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>SEASON</p>
                       <input type="number" min={1} value={sessionSeason} onChange={(e) => setSessionSeason(e.target.value)} placeholder="S" style={inp} />
                     </div>
                     <div>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>EPISODE</p>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>EPISODE</p>
                       <input type="number" min={1} value={sessionEpisode} onChange={(e) => setSessionEpisode(e.target.value)} placeholder="E" style={inp} />
                     </div>
                     <div>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>EPISODES</p>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>EPISODES</p>
                       <input type="number" min={1} value={sessionProgressLogged} onChange={(e) => setSessionProgressLogged(e.target.value)} placeholder="e.g. 3" style={inp} />
                     </div>
                   </>
                 ) : (
                   <>
                     <div>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>HOURS</p>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>HOURS</p>
                       <input type="number" min={0} max={23} value={sessionHours} onChange={(e) => setSessionHours(e.target.value)} placeholder="0" style={inp} />
                     </div>
                     <div>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>MINS</p>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>MINS</p>
                       <input type="number" min={0} max={59} value={sessionMinutes} onChange={(e) => setSessionMinutes(e.target.value)} placeholder="0" style={inp} />
                     </div>
                   </>
                 )}
                 {entry.hobby_category === 'books' && entry.book_subtype && !['audiobook'].includes(entry.book_subtype) && (
                   <div>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>
                       {BOOK_SUBTYPE_MAP[entry.book_subtype].progressLabel.toUpperCase()}
                     </p>
                     <input type="number" min={1} value={sessionProgressLogged} onChange={(e) => setSessionProgressLogged(e.target.value)} placeholder="OPTIONAL" style={inp} />
                   </div>
                 )}
               </div>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>SESSION NOTES</p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>SESSION NOTES</p>
               <input type="text" value={sessionNotes} onChange={(e) => setSessionNotes(e.target.value)} placeholder="NOTES…" style={{ ...inp, marginBottom: 12 }} />
               <button onClick={handleAddSession} disabled={addingSession}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: hobby.accent, background: `${hobby.accent}22`, border: `1px solid ${hobby.accent}`, borderLeft: `3px solid ${hobby.accent}`, cursor: addingSession ? 'not-allowed' : 'pointer', opacity: addingSession ? 0.6 : 1, transition: 'all 0.15s ease', justifyContent: 'center' }}
@@ -624,14 +629,14 @@ export default function EntryDetailClient({ id }: { id: string }) {
             </div>
 
             {sessions.length === 0 ? (
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#2a3a4a', textAlign: 'center', padding: 16, margin: 0 }}>NO SESSIONS LOGGED</p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mute)', textAlign: 'center', padding: 16, margin: 0 }}>NO SESSIONS LOGGED</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {sessions.map((s) => (
-                  <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: 12, background: '#080a0e', border: `1px solid #1a2a3a` }}>
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: 12, background: 'var(--bg-base)', border: `1px solid var(--border-dim)` }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#f0f4f8' }}>{s.date}</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-hi)' }}>{s.date}</span>
                         {entry.hobby_category === 'tv' && s.progress_logged && (
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, padding: '2px 8px', background: `${hobby.accent}22`, color: hobby.accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                             {`${s.progress_logged} EP`}
@@ -648,7 +653,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
                           </span>
                         )}
                       </div>
-                      {s.notes && <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', marginTop: 6, margin: 0 }}>{s.notes}</p>}
+                      {s.notes && <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', marginTop: 6, margin: 0 }}>{s.notes}</p>}
                     </div>
                     <button onClick={() => handleDeleteSession(s.id)} style={{ color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', padding: 4, transition: 'color 0.15s ease' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')} onMouseLeave={(e) => (e.currentTarget.style.color = '#f87171')}>
                       <Trash2 size={13} />

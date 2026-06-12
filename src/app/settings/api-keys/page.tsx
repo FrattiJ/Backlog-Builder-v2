@@ -25,8 +25,8 @@ export default function ApiKeysPage() {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const card = { background: '#161618', border: '1px solid rgba(255,255,255,0.06)' }
-  const inp = { background: '#1f1f23', border: '1px solid rgba(255,255,255,0.08)' }
+  const card = { background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.06)' }
+  const inp = { background: 'var(--bg-base)', border: '1px solid rgba(255,255,255,0.08)' }
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
@@ -88,7 +88,7 @@ export default function ApiKeysPage() {
         <div className="rounded-2xl p-5" style={{ ...card, background: 'rgba(5,150,105,0.08)', borderColor: 'rgba(5,150,105,0.2)' }}>
           <h3 className="font-medium text-sm mb-1" style={{ color: '#34d399' }}>✓ No key required</h3>
           <p className="text-xs" style={{ color: '#6b7280' }}>
-            <strong style={{ color: '#9ca3af' }}>OpenLibrary</strong> (Books/Audiobooks) and <strong style={{ color: '#9ca3af' }}>Jikan/MyAnimeList</strong> (Manga) work immediately with no signup needed.
+            <strong style={{ color: 'var(--text-mid)' }}>OpenLibrary</strong> (Books/Audiobooks) and <strong style={{ color: 'var(--text-mid)' }}>Jikan/MyAnimeList</strong> (Manga) work immediately with no signup needed.
           </p>
         </div>
 

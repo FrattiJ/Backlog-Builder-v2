@@ -36,8 +36,8 @@ export default function Header({ profile }: { profile: Profile | null }) {
         left: 220,
         right: 0,
         height: 52,
-        background: '#090c10',
-        borderBottom: '1px solid #1a2a3a',
+        background: 'var(--bg-panel)',
+        borderBottom: '1px solid var(--border-dim)',
         zIndex: 50,
         display: 'flex',
         alignItems: 'center',
@@ -97,15 +97,15 @@ export default function Header({ profile }: { profile: Profile | null }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#4a6a8a',
+              color: 'var(--text-dim)',
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
               borderRadius: 4,
               transition: 'color 0.15s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#f0f4f8')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#4a6a8a')}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-hi)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
           >
             <Icon size={15} />
           </button>
@@ -118,9 +118,9 @@ export default function Header({ profile }: { profile: Profile | null }) {
             alignItems: 'center',
             gap: 6,
             padding: '4px 10px',
-            border: '1px solid #1a2a3a',
-            borderLeft: '2px solid #4a6a8a',
-            background: '#0d1117',
+            border: '1px solid var(--border-dim)',
+            borderLeft: '2px solid var(--text-dim)',
+            background: 'var(--bg-card)',
             cursor: 'default',
           }}
         >
@@ -138,14 +138,14 @@ export default function Header({ profile }: { profile: Profile | null }) {
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 14,
-              color: '#9ca3af',
+              color: 'var(--text-mid)',
               letterSpacing: '0.08em',
               whiteSpace: 'nowrap',
             }}
           >
             USER / {profile?.username?.toUpperCase() ?? 'ANONYMOUS'}
           </span>
-          <ChevronDown size={10} style={{ color: '#4a6a8a' }} />
+          <ChevronDown size={10} style={{ color: 'var(--text-dim)' }} />
         </div>
       </div>
     </header>

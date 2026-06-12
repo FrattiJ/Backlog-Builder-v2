@@ -34,7 +34,7 @@ export default function SearchPage() {
           type="text" value={query} onChange={(e) => setQuery(e.target.value)}
           placeholder="Search all hobbies..." autoFocus
           className="w-full pl-11 pr-4 py-3 rounded-2xl text-white text-sm outline-none"
-          style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)' }}
         />
       </div>
 
@@ -72,7 +72,7 @@ export default function SearchPage() {
           <input type="number" min={1} max={10} step={0.5} value={minRating}
             onChange={(e) => setMinRating(e.target.value)}
             className="w-16 px-2 py-1.5 rounded-lg text-white text-xs outline-none"
-            style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)' }}
             placeholder="any"
           />
         </div>
@@ -81,7 +81,7 @@ export default function SearchPage() {
       <p className="text-sm mb-4" style={{ color: '#6b7280' }}>{filtered.length} result{filtered.length !== 1 ? 's' : ''}</p>
 
       {filtered.length === 0 ? (
-        <div className="rounded-2xl p-16 text-center" style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-2xl p-16 text-center" style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <p className="text-white font-semibold mb-1">No results</p>
           <p className="text-sm" style={{ color: '#6b7280' }}>Try different search terms or filters</p>
         </div>

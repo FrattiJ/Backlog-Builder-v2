@@ -49,7 +49,7 @@ export default function MechCard({
     >
       <div
         style={{
-          background: '#0d1117',
+          background: 'var(--bg-card)',
           clipPath: CLIP,
           position: 'relative',
           width: '100%',
@@ -80,7 +80,7 @@ export default function MechCard({
               right: 12,
               fontFamily: 'var(--font-mono)',
               fontSize: 14,
-              color: '#4a6a8a',
+              color: 'var(--text-dim)',
               letterSpacing: '0.1em',
               zIndex: 1,
             }}
@@ -98,7 +98,7 @@ export default function MechCard({
 /* ── Simple non-clipped mech border box (for inputs, smaller elements) ──────── */
 export function MechBox({
   children,
-  accent = '#4a6a8a',
+  accent = 'var(--text-dim)',
   className = '',
   style,
 }: {
@@ -111,7 +111,7 @@ export function MechBox({
     <div
       className={className}
       style={{
-        background: '#0d1117',
+        background: 'var(--bg-card)',
         border: `1px solid ${accent}66`,
         borderLeft: `2px solid ${accent}`,
         padding: '12px 16px',

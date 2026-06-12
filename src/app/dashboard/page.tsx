@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import EntryCard from '@/components/EntryCard'
 import StatCard from '@/components/StatCard'
 import MechCard from '@/components/MechCard'
-import { getAllEntries } from '@/lib/db'
+import { getAllEntries, ENTRIES_CHANGED_EVENT } from '@/lib/db'
 import { HOBBIES, HOBBY_MAP, STATUS_LABELS } from '@/lib/hobbies'
 import type { Entry, EntryStatus } from '@/types/database'
 import { ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react'
@@ -47,7 +47,11 @@ export default function DashboardPage() {
   const [hobbyFilter, setHobbyFilter] = useState<string>('all')
 
   useEffect(() => {
-    getAllEntries().then(setEntries).finally(() => setLoading(false))
+    const load = () => getAllEntries().then(setEntries).finally(() => setLoading(false))
+    load()
+    // Refresh when entries change anywhere (sidebar quick add, quick log, etc.)
+    window.addEventListener(ENTRIES_CHANGED_EVENT, load)
+    return () => window.removeEventListener(ENTRIES_CHANGED_EVENT, load)
   }, [])
 
   const inProgress = entries.filter((e) => e.status === 'in_progress')
@@ -128,9 +132,9 @@ export default function DashboardPage() {
         display: 'flex', alignItems: 'center', gap: 4,
         padding: '4px 10px',
         fontFamily: 'var(--font-mono)', fontSize: 14, letterSpacing: '0.12em',
-        background: sortField === field ? 'rgba(74,106,138,0.2)' : 'transparent',
-        border: `1px solid ${sortField === field ? '#4a6a8a' : '#1a2a3a'}`,
-        color: sortField === field ? '#9ca3af' : '#4a6a8a',
+        background: sortField === field ? 'color-mix(in srgb, var(--text-dim) 20%, transparent)' : 'transparent',
+        border: `1px solid ${sortField === field ? 'var(--text-dim)' : 'var(--border-dim)'}`,
+        color: sortField === field ? 'var(--text-mid)' : 'var(--text-dim)',
         cursor: 'pointer', transition: 'all 0.12s ease',
       }}
     >
@@ -144,8 +148,8 @@ export default function DashboardPage() {
   return (
     <div style={{ padding: '32px', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.2em', marginBottom: 4 }}>SYSTEM / STATUS</p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 900, color: '#f0f4f8', letterSpacing: '0.08em', margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.2em', marginBottom: 4 }}>SYSTEM / STATUS</p>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 900, color: 'var(--text-hi)', letterSpacing: '0.08em', margin: 0 }}>
           MISSION OVERVIEW
         </h1>
       </div>
@@ -155,12 +159,12 @@ export default function DashboardPage() {
         <StatFilterCard label="Total Records"  value={entries.length}    accent="#7c3aed" index={0} filterKey="all"         active={activeFilter === 'all'}         onClick={() => handleStatClick('all')} />
         <StatFilterCard label="In Progress"    value={inProgress.length} accent="#0891b2" index={1} filterKey="in_progress" active={activeFilter === 'in_progress'} onClick={() => handleStatClick('in_progress')} />
         <StatFilterCard label="Completed"      value={completed.length}  accent="#22c55e" index={2} filterKey="completed"   active={activeFilter === 'completed'}   onClick={() => handleStatClick('completed')} />
-        <StatFilterCard label="Backlog"        value={backlog.length}    accent="#4a6a8a" index={3} filterKey="backlog"      active={activeFilter === 'backlog'}     onClick={() => handleStatClick('backlog')} />
+        <StatFilterCard label="Backlog"        value={backlog.length}    accent="var(--text-dim)" index={3} filterKey="backlog"      active={activeFilter === 'backlog'}     onClick={() => handleStatClick('backlog')} />
       </div>
 
       {/* ── Hours tracking ── */}
       <div style={{ marginBottom: 28 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', letterSpacing: '0.14em', marginBottom: 8, opacity: 0.7 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-dim)', letterSpacing: '0.14em', marginBottom: 8, opacity: 0.7 }}>
           (Games, Movies, Audiobooks, TV shows @ 22min/ep)
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
@@ -173,17 +177,17 @@ export default function DashboardPage() {
       {activeFilter !== null && (
         <div style={{ marginBottom: 28 }}>
           <div style={{
-            background: '#0d1117',
-            border: '1px solid #1a2a3a',
-            borderTop: `2px solid ${activeFilter === 'in_progress' ? '#0891b2' : activeFilter === 'completed' ? '#22c55e' : activeFilter === 'backlog' ? '#4a6a8a' : '#7c3aed'}`,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-dim)',
+            borderTop: `2px solid ${activeFilter === 'in_progress' ? '#0891b2' : activeFilter === 'completed' ? '#22c55e' : activeFilter === 'backlog' ? 'var(--text-dim)' : '#7c3aed'}`,
           }}>
             {/* Panel header */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '12px 16px', borderBottom: '1px solid #1a2a3a', flexWrap: 'wrap', gap: 8,
+              padding: '12px 16px', borderBottom: '1px solid var(--border-dim)', flexWrap: 'wrap', gap: 8,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', margin: 0 }}>
                   {activeFilter === 'all' ? 'ALL RECORDS' : STATUS_LABELS[activeFilter].toUpperCase()} — {expandedEntries.length} ENTRIES
                 </p>
               </div>
@@ -194,8 +198,8 @@ export default function DashboardPage() {
                   value={hobbyFilter}
                   onChange={(e) => setHobbyFilter(e.target.value)}
                   style={{
-                    background: '#080a0e', border: '1px solid #1a2a3a',
-                    color: '#9ca3af', fontFamily: 'var(--font-mono)', fontSize: 14,
+                    background: 'var(--bg-base)', border: '1px solid var(--border-dim)',
+                    color: 'var(--text-mid)', fontFamily: 'var(--font-mono)', fontSize: 14,
                     letterSpacing: '0.1em', padding: '4px 8px', cursor: 'pointer',
                     outline: 'none',
                   }}
@@ -217,7 +221,7 @@ export default function DashboardPage() {
             {/* Entry grid */}
             <div style={{ padding: 12 }}>
               {expandedEntries.length === 0 ? (
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#2a3a4a', letterSpacing: '0.14em', textAlign: 'center', padding: '24px 0' }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mute)', letterSpacing: '0.14em', textAlign: 'center', padding: '24px 0' }}>
                   NO RECORDS MATCH FILTER
                 </p>
               ) : (
@@ -232,7 +236,7 @@ export default function DashboardPage() {
 
       {/* ── Category index ── */}
       <div style={{ marginBottom: 32 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', marginBottom: 12 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', marginBottom: 12 }}>
           CATEGORY INDEX
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
@@ -242,7 +246,7 @@ export default function DashboardPage() {
               <MechCard key={h.id} accent={h.accent} index={i + 4} hoverable onClick={() => router.push(HOBBY_PATHS[h.id])}>
                 <div style={{ padding: '14px 10px', textAlign: 'center' }}>
                   <p style={{ fontFamily: 'var(--font-mono)', fontSize: 24, color: h.accent, lineHeight: 1, marginBottom: 4 }}>{count}</p>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#4a6a8a', letterSpacing: '0.12em', textTransform: 'uppercase', lineHeight: 1.3 }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-dim)', letterSpacing: '0.12em', textTransform: 'uppercase', lineHeight: 1.3 }}>
                     {h.pluralLabel}
                   </p>
                 </div>
@@ -257,7 +261,7 @@ export default function DashboardPage() {
         <div style={{ marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             <span style={{ width: 8, height: 8, background: '#0891b2', borderRadius: '50%', animation: 'status-blink 2s ease-in-out infinite', flexShrink: 0 }} />
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', margin: 0 }}>ACTIVE OPERATIONS</p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', margin: 0 }}>ACTIVE OPERATIONS</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
             {inProgress.slice(0, 6).map((e, i) => <EntryCard key={e.id} entry={e} index={i + 11} />)}
@@ -267,11 +271,11 @@ export default function DashboardPage() {
 
       {/* ── Recent ── */}
       <div>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', marginBottom: 12 }}>RECENT ACTIVITY</p>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', marginBottom: 12 }}>RECENT ACTIVITY</p>
         {entries.length === 0 ? (
-          <div style={{ padding: '48px 32px', textAlign: 'center', border: '1px solid #1a2a3a', borderLeft: '3px solid #7c3aed', background: '#0d1117' }}>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.2em', marginBottom: 8 }}>◈ NO RECORDS FOUND</p>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: '#f0f4f8', marginBottom: 16 }}>DATABASE EMPTY</p>
+          <div style={{ padding: '48px 32px', textAlign: 'center', border: '1px solid var(--border-dim)', borderLeft: '3px solid #7c3aed', background: 'var(--bg-card)' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.2em', marginBottom: 8 }}>◈ NO RECORDS FOUND</p>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-hi)', marginBottom: 16 }}>DATABASE EMPTY</p>
             <button
               onClick={() => router.push('/games')}
               style={{ padding: '8px 20px', background: '#7c3aed22', border: '1px solid #7c3aed', color: '#7c3aed', fontFamily: 'var(--font-display)', fontSize: 14, letterSpacing: '0.1em', cursor: 'pointer' }}

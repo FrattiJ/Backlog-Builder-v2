@@ -13,7 +13,7 @@ function EntryPageInner() {
 
 export default function EntryPage() {
   return (
-    <Suspense fallback={<div className="p-8 animate-pulse"><div className="h-8 w-48 rounded-lg" style={{ background: '#161618' }} /></div>}>
+    <Suspense fallback={<div className="p-8 animate-pulse"><div className="h-8 w-48 rounded-lg" style={{ background: 'var(--bg-card)' }} /></div>}>
       <EntryPageInner />
     </Suspense>
   )

@@ -42,7 +42,7 @@ export default function StatCard({ label, value, accent = '#7c3aed', sub, index 
             fontFamily: 'var(--font-mono)',
             fontSize: 14,
             letterSpacing: '0.18em',
-            color: '#4a6a8a',
+            color: 'var(--text-dim)',
             textTransform: 'uppercase',
             marginBottom: 10,
           }}
@@ -54,7 +54,7 @@ export default function StatCard({ label, value, accent = '#7c3aed', sub, index 
             fontFamily: 'var(--font-mono)',
             fontSize: 32,
             fontWeight: 400,
-            color: '#f0f4f8',
+            color: 'var(--text-hi)',
             lineHeight: 1,
             marginBottom: 6,
           }}
@@ -62,7 +62,7 @@ export default function StatCard({ label, value, accent = '#7c3aed', sub, index 
           {isNumeric ? animated : value}
         </p>
         {sub && (
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.1em' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
             {sub}
           </p>
         )}

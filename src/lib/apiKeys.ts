@@ -31,7 +31,7 @@ export async function searchIGDB(query: string) {
 
   try {
     const res = await fetch(
-      `https://api.rawg.io/api/games?search=${encodeURIComponent(query)}&key=${rawgApiKey}&page_size=6`
+      `https://api.rawg.io/api/games?search=${encodeURIComponent(query)}&key=${rawgApiKey}&page_size=15`
     )
 
     if (!res.ok) {
@@ -52,9 +52,10 @@ export async function searchIGDB(query: string) {
         ? new Date(g.released as string).getFullYear()
         : null,
       summary: (g.description as string) ?? null,
-      time_to_beat_main: g.playtime ? Math.round(Number(g.playtime) * 1.5) : null,
-      time_to_beat_rushed: g.playtime ? Number(g.playtime) : null,
-      time_to_beat_complete: g.playtime ? Math.round(Number(g.playtime) * 2) : null,
+      // RAWG only provides a single community average playtime — no real HLTB data
+      time_to_beat_main: g.playtime ? Number(g.playtime) : null,
+      time_to_beat_rushed: null,
+      time_to_beat_complete: null,
       rating: (g.rating as number) || null,
       platforms: Array.isArray(g.platforms)
         ? (g.platforms as Record<string, unknown>[]).map((p) => (p as Record<string, unknown>).platform).map((p) => (p as Record<string, string>).name).join(', ')
@@ -97,7 +98,7 @@ export async function searchTMDB(query: string, type: 'movie' | 'tv') {
     `https://api.themoviedb.org/3/search/${type}?query=${encodeURIComponent(query)}&api_key=${tmdbApiKey}&page=1`
   )
   const data = await res.json()
-  return (data.results ?? []).slice(0, 6).map((item: Record<string, unknown>) => ({
+  return (data.results ?? []).slice(0, 15).map((item: Record<string, unknown>) => ({
     id: String(item.id),
     title: ((item.title ?? item.name) as string),
     cover_url: item.poster_path
@@ -110,11 +111,33 @@ export async function searchTMDB(query: string, type: 'movie' | 'tv') {
   }))
 }
 
-export async function fetchTMDBMovieDetails(id: string): Promise<{ runtime: number | null; director: string | null; studios: string | null; rating: number | null }> {
+// Extract US streaming providers from a TMDB watch/providers response
+function parseWatchProviders(data: Record<string, unknown>): string | null {
+  const results = data.results as Record<string, Record<string, unknown>> | undefined
+  const us = results?.US
+  if (!us) return null
+  const flatrate = us.flatrate as Record<string, string>[] | undefined
+  if (!Array.isArray(flatrate) || flatrate.length === 0) return null
+  return flatrate.slice(0, 4).map((p) => p.provider_name).join(', ')
+}
+
+export async function fetchTMDBWatchProviders(id: string, type: 'movie' | 'tv'): Promise<string | null> {
   const { tmdbApiKey } = await getApiKeys()
-  if (!tmdbApiKey) return { runtime: null, director: null, studios: null, rating: null }
+  if (!tmdbApiKey) return null
   try {
-    const res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${tmdbApiKey}&append_to_response=credits`)
+    const res = await fetch(`https://api.themoviedb.org/3/${type}/${id}/watch/providers?api_key=${tmdbApiKey}`)
+    if (!res.ok) return null
+    return parseWatchProviders(await res.json())
+  } catch {
+    return null
+  }
+}
+
+export async function fetchTMDBMovieDetails(id: string): Promise<{ runtime: number | null; director: string | null; studios: string | null; rating: number | null; streaming: string | null }> {
+  const { tmdbApiKey } = await getApiKeys()
+  if (!tmdbApiKey) return { runtime: null, director: null, studios: null, rating: null, streaming: null }
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${tmdbApiKey}&append_to_response=credits,watch/providers`)
     const data = await res.json()
 
     // Get director from credits
@@ -129,22 +152,26 @@ export async function fetchTMDBMovieDetails(id: string): Promise<{ runtime: numb
       ? (data.production_companies as Record<string, string>[]).slice(0, 2).map((c) => c.name).join(', ')
       : null
 
+    // Get streaming providers (append_to_response nests them under 'watch/providers')
+    const streaming = data['watch/providers'] ? parseWatchProviders(data['watch/providers']) : null
+
     return {
       runtime: (data.runtime as number) ?? null,
       director,
       studios,
       rating: (data.vote_average as number) ?? null,
+      streaming,
     }
   } catch {
-    return { runtime: null, director: null, studios: null, rating: null }
+    return { runtime: null, director: null, studios: null, rating: null, streaming: null }
   }
 }
 
-export async function fetchTMDBTVDetails(id: string): Promise<{ episodes: number | null; seasons: number | null; episodeRuntime: number | null; creator: string | null; networks: string | null; rating: number | null }> {
+export async function fetchTMDBTVDetails(id: string): Promise<{ episodes: number | null; seasons: number | null; episodeRuntime: number | null; creator: string | null; networks: string | null; rating: number | null; streaming: string | null }> {
   const { tmdbApiKey } = await getApiKeys()
-  if (!tmdbApiKey) return { episodes: null, seasons: null, episodeRuntime: null, creator: null, networks: null, rating: null }
+  if (!tmdbApiKey) return { episodes: null, seasons: null, episodeRuntime: null, creator: null, networks: null, rating: null, streaming: null }
   try {
-    const res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${tmdbApiKey}`)
+    const res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${tmdbApiKey}&append_to_response=watch/providers`)
     const data = await res.json()
 
     // episode_run_time is an array, get the first value (most common episode length)
@@ -162,6 +189,8 @@ export async function fetchTMDBTVDetails(id: string): Promise<{ episodes: number
       ? (data.networks as Record<string, string>[]).slice(0, 2).map((n) => n.name).join(', ')
       : null
 
+    const streaming = data['watch/providers'] ? parseWatchProviders(data['watch/providers']) : null
+
     return {
       episodes: (data.number_of_episodes as number) ?? null,
       seasons: (data.number_of_seasons as number) ?? null,
@@ -169,9 +198,10 @@ export async function fetchTMDBTVDetails(id: string): Promise<{ episodes: number
       creator,
       networks,
       rating: (data.vote_average as number) ?? null,
+      streaming,
     }
   } catch {
-    return { episodes: null, seasons: null, episodeRuntime: null, creator: null, networks: null, rating: null }
+    return { episodes: null, seasons: null, episodeRuntime: null, creator: null, networks: null, rating: null, streaming: null }
   }
 }
 
@@ -199,7 +229,7 @@ export async function calculateTVProgressFromSeason(tvId: string, season: number
 
 export async function searchOpenLibrary(query: string) {
   const res = await fetch(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=key,title,author_name,cover_i,number_of_pages_median,first_publish_year,publisher&limit=6`
+    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=key,title,author_name,cover_i,number_of_pages_median,first_publish_year,publisher&limit=15`
   )
   const data = await res.json()
   return (data.docs ?? []).map((book: Record<string, unknown>) => ({
@@ -230,7 +260,7 @@ export async function fetchOpenLibraryDetails(id: string): Promise<{ author: str
 
 export async function searchJikan(query: string) {
   const res = await fetch(
-    `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=6&sfw=true`
+    `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=15&sfw=true`
   )
   const data = await res.json()
   return (data.data ?? []).map((m: Record<string, unknown>) => {

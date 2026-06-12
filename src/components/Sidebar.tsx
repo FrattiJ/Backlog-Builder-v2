@@ -44,15 +44,15 @@ function NavItem({ href, icon: Icon, label, accent, pathname }: NavItemProps) {
         fontFamily: 'var(--font-display)',
         fontWeight: active ? 600 : 400,
         letterSpacing: '0.06em',
-        color: active ? '#f0f4f8' : '#4a6a8a',
+        color: active ? 'var(--text-hi)' : 'var(--text-dim)',
         background: active ? 'rgba(255,255,255,0.04)' : 'transparent',
         borderLeft: active && accent ? `3px solid ${accent}` : '3px solid transparent',
         transition: 'all 0.15s ease',
         textDecoration: 'none',
         position: 'relative',
       }}
-      onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = '#9ca3af' }}
-      onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = '#4a6a8a' }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = 'var(--text-mid)' }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = 'var(--text-dim)' }}
     >
       {/* Active bar pulse */}
       {active && accent && (
@@ -82,7 +82,7 @@ function SectionLabel({ children }: { children: string }) {
         fontFamily: 'var(--font-mono)',
         fontSize: 14,
         letterSpacing: '0.2em',
-        color: '#2a3a4a',
+        color: 'var(--text-mute)',
         padding: '16px 16px 6px',
         textTransform: 'uppercase',
         display: 'flex',
@@ -90,9 +90,9 @@ function SectionLabel({ children }: { children: string }) {
         gap: 6,
       }}
     >
-      <span style={{ flex: 1, height: 1, background: '#1a2a3a' }} />
+      <span style={{ flex: 1, height: 1, background: 'var(--border-dim)' }} />
       {children}
-      <span style={{ flex: 1, height: 1, background: '#1a2a3a' }} />
+      <span style={{ flex: 1, height: 1, background: 'var(--border-dim)' }} />
     </div>
   )
 }
@@ -111,8 +111,8 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
         top: 0,
         height: '100vh',
         width: 220,
-        background: '#090c10',
-        borderRight: '1px solid #1a2a3a',
+        background: 'var(--bg-panel)',
+        borderRight: '1px solid var(--border-dim)',
         display: 'flex',
         flexDirection: 'column',
         zIndex: 60,
@@ -123,12 +123,12 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
       <div
         style={{
           padding: '20px 16px 16px',
-          borderBottom: '1px solid #1a2a3a',
+          borderBottom: '1px solid var(--border-dim)',
           position: 'relative',
         }}
       >
         {/* Panel tag */}
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#2a3a4a', letterSpacing: '0.2em', marginBottom: 6 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mute)', letterSpacing: '0.2em', marginBottom: 6 }}>
           PANEL 01 /
         </div>
 
@@ -151,7 +151,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
               fontFamily: 'var(--font-display)',
               fontSize: 14,
               fontWeight: 900,
-              color: '#f0f4f8',
+              color: 'var(--text-hi)',
               letterSpacing: '0.12em',
             }}
           >
@@ -241,7 +241,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
       </nav>
 
       {/* ── User + status ───────────────────────────────────────────────────── */}
-      <div style={{ borderTop: '1px solid #1a2a3a', padding: '12px 16px' }}>
+      <div style={{ borderTop: '1px solid var(--border-dim)', padding: '12px 16px' }}>
         {profile && (
           <div
             style={{
@@ -250,8 +250,8 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
               gap: 8,
               marginBottom: 10,
               padding: '6px 8px',
-              borderLeft: '2px solid #4a6a8a',
-              background: 'rgba(74,106,138,0.06)',
+              borderLeft: '2px solid var(--text-dim)',
+              background: 'color-mix(in srgb, var(--text-dim) 6%, transparent)',
             }}
           >
             {profile.avatar_url ? (
@@ -266,7 +266,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
                 }}
               />
             )}
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#9ca3af', letterSpacing: '0.08em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mid)', letterSpacing: '0.08em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {(profile.username ?? 'OPERATOR').toUpperCase()}
             </span>
           </div>
@@ -283,7 +283,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
               animation: 'status-blink 3s ease-in-out infinite',
             }}
           />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#2a3a4a', letterSpacing: '0.14em', whiteSpace: 'nowrap' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-mute)', letterSpacing: '0.14em', whiteSpace: 'nowrap' }}>
             ALL SYSTEMS NOMINAL
           </span>
         </div>

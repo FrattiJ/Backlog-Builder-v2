@@ -6,7 +6,7 @@ import EntryCard from './EntryCard'
 import AddEntryModal from './AddEntryModal'
 import type { Entry, HobbyCategory, EntryStatus } from '@/types/database'
 import { HOBBY_MAP, STATUS_LABELS, STATUS_COLORS } from '@/lib/hobbies'
-import { getEntriesByHobby } from '@/lib/db'
+import { getEntriesByHobby, ENTRIES_CHANGED_EVENT } from '@/lib/db'
 
 const STATUS_OPTIONS: (EntryStatus | 'all')[] = ['all', 'backlog', 'in_progress', 'completed', 'dropped']
 
@@ -24,6 +24,12 @@ export default function HobbyPage({ hobbyId }: { hobbyId: HobbyCategory }) {
 
   useEffect(() => { loadEntries() }, [loadEntries])
 
+  // Refresh when entries change anywhere (sidebar quick add, quick log, etc.)
+  useEffect(() => {
+    window.addEventListener(ENTRIES_CHANGED_EVENT, loadEntries)
+    return () => window.removeEventListener(ENTRIES_CHANGED_EVENT, loadEntries)
+  }, [loadEntries])
+
   const filtered = entries.filter((e) => {
     if (statusFilter !== 'all' && e.status !== statusFilter) return false
     if (search && !e.title.toLowerCase().includes(search.toLowerCase())) return false
@@ -31,11 +37,11 @@ export default function HobbyPage({ hobbyId }: { hobbyId: HobbyCategory }) {
   })
 
   const inp = {
-    background: '#0d1117',
-    border: '1px solid #1a2a3a',
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-dim)',
     borderLeft: `2px solid ${hobby.accent}66`,
     padding: '8px 14px',
-    color: '#f0f4f8',
+    color: 'var(--text-hi)',
     fontSize: 14,
     fontFamily: 'var(--font-mono)',
     letterSpacing: '0.04em',
@@ -66,20 +72,20 @@ export default function HobbyPage({ hobbyId }: { hobbyId: HobbyCategory }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.2em', marginBottom: 4 }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.2em', marginBottom: 4 }}>
             CATEGORY / {hobbyId.toUpperCase()}
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display)',
             fontSize: 22,
             fontWeight: 900,
-            color: '#f0f4f8',
+            color: 'var(--text-hi)',
             letterSpacing: '0.08em',
             margin: 0,
           }}>
             {hobby.pluralLabel.toUpperCase()}
           </h1>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', marginTop: 4, letterSpacing: '0.1em' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', marginTop: 4, letterSpacing: '0.1em' }}>
             {entries.length} RECORDS INDEXED
           </p>
         </div>
@@ -136,9 +142,9 @@ export default function HobbyPage({ hobbyId }: { hobbyId: HobbyCategory }) {
                   letterSpacing: '0.12em',
                   textTransform: 'uppercase',
                   background: active ? `${color}22` : 'transparent',
-                  border: `1px solid ${active ? color : '#1a2a3a'}`,
-                  borderLeft: active ? `2px solid ${color}` : '1px solid #1a2a3a',
-                  color: active ? color : '#4a6a8a',
+                  border: `1px solid ${active ? color : 'var(--border-dim)'}`,
+                  borderLeft: active ? `2px solid ${color}` : '1px solid var(--border-dim)',
+                  color: active ? color : 'var(--text-dim)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
@@ -158,16 +164,16 @@ export default function HobbyPage({ hobbyId }: { hobbyId: HobbyCategory }) {
             textAlign: 'center',
             border: `1px solid ${hobby.accent}33`,
             borderLeft: `3px solid ${hobby.accent}`,
-            background: '#0d1117',
+            background: 'var(--bg-card)',
           }}
         >
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: hobby.accent, letterSpacing: '0.2em', marginBottom: 8 }}>
             ◈ NO DATA FOUND
           </p>
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: '#f0f4f8', marginBottom: 4 }}>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-hi)', marginBottom: 4 }}>
             {entries.length === 0 ? `${hobby.pluralLabel.toUpperCase()} LIBRARY EMPTY` : 'NO MATCHES'}
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.1em', marginBottom: 20 }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 20 }}>
             {entries.length === 0 ? 'INITIALIZE FIRST RECORD' : 'ADJUST QUERY PARAMETERS'}
           </p>
           {entries.length === 0 && (

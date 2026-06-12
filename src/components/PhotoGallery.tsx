@@ -75,11 +75,11 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
   function PhotoGrid({ items, label }: { items: Photo[]; label: string }) {
     return (
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 12 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 12 }}>
           {label}
         </p>
         {items.length === 0 ? (
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#2a3a4a', letterSpacing: '0.1em' }}>NO PHOTOS</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mute)', letterSpacing: '0.1em' }}>NO PHOTOS</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
             {items.map((photo) => (
@@ -88,7 +88,7 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
                 style={{
                   position: 'relative',
                   aspectRatio: '4/3',
-                  background: '#0d1117',
+                  background: 'var(--bg-card)',
                   border: `1px solid ${accent}44`,
                   overflow: 'hidden',
                   cursor: 'pointer',
@@ -100,7 +100,7 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
               >
                 <img src={photo.data_url} alt={photo.caption ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 {photo.caption && (
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'rgba(0,0,0,0.7)', fontSize: 14, color: '#f0f4f8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'rgba(0,0,0,0.7)', fontSize: 14, color: 'var(--text-hi)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
                     {photo.caption}
                   </div>
                 )}
@@ -121,11 +121,11 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
   }
 
   const inp = {
-    background: '#080a0e',
-    border: '1px solid #1a2a3a',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border-dim)',
     borderLeft: `2px solid ${accent}66`,
     padding: '8px 12px',
-    color: '#f0f4f8',
+    color: 'var(--text-hi)',
     fontSize: 14,
     fontFamily: 'var(--font-mono)',
     letterSpacing: '0.04em',
@@ -138,7 +138,7 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
       {/* Section header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
         <ImagePlus size={14} style={{ color: accent }} />
-        <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: '#f0f4f8', letterSpacing: '0.08em', margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-hi)', letterSpacing: '0.08em', margin: 0 }}>
           PROJECT PHOTOS
         </p>
       </div>
@@ -150,8 +150,8 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
       <PhotoGrid items={completedPhotos} label="✓ Completed" />
 
       {/* Upload controls */}
-      <div style={{ background: '#0d1117', border: '1px solid #1a2a3a', padding: 16, borderLeft: `3px solid ${accent}` }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 12, margin: 0 }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-dim)', padding: 16, borderLeft: `3px solid ${accent}` }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 12, margin: 0 }}>
           ADD PHOTO
         </p>
 
@@ -168,9 +168,9 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
                 background: uploadType === t ? `${accent}22` : 'transparent',
-                border: `1px solid ${uploadType === t ? accent : '#1a2a3a'}`,
-                borderLeft: uploadType === t ? `2px solid ${accent}` : '1px solid #1a2a3a',
-                color: uploadType === t ? accent : '#4a6a8a',
+                border: `1px solid ${uploadType === t ? accent : 'var(--border-dim)'}`,
+                borderLeft: uploadType === t ? `2px solid ${accent}` : '1px solid var(--border-dim)',
+                color: uploadType === t ? accent : 'var(--text-dim)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -222,13 +222,13 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
       {/* Lightbox */}
       {lightbox && (
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(8,10,14,0.96)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'var(--overlay)' }}
           onClick={() => setLightbox(null)}
         >
           <button
-            style={{ position: 'absolute', top: 16, right: 16, color: '#4a6a8a', background: 'none', border: 'none', cursor: 'pointer', padding: 4, transition: 'color 0.15s ease' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#f0f4f8')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#4a6a8a')}
+            style={{ position: 'absolute', top: 16, right: 16, color: 'var(--text-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, transition: 'color 0.15s ease' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-hi)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
             onClick={() => setLightbox(null)}
           >
             <X size={20} />
@@ -237,10 +237,10 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
             <img
               src={lightbox.data_url}
               alt={lightbox.caption ?? ''}
-              style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', border: `1px solid #4a6a8a44` }}
+              style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', border: `1px solid color-mix(in srgb, var(--text-dim) 27%, transparent)` }}
             />
             {lightbox.caption && (
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#9ca3af', letterSpacing: '0.04em', textAlign: 'center', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mid)', letterSpacing: '0.04em', textAlign: 'center', margin: 0 }}>
                 {lightbox.caption}
               </p>
             )}
@@ -252,13 +252,13 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
                   padding: '4px 10px',
                   textTransform: 'uppercase',
                   background: lightbox.photo_type === 'completed' ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.08)',
-                  color: lightbox.photo_type === 'completed' ? '#22c55e' : '#9ca3af',
+                  color: lightbox.photo_type === 'completed' ? '#22c55e' : 'var(--text-mid)',
                   letterSpacing: '0.1em',
                 }}
               >
                 {lightbox.photo_type === 'completed' ? '✓ COMPLETED' : '⋯ PROGRESS'}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)' }}>
                 {new Date(lightbox.created_at).toLocaleDateString()}
               </span>
             </div>
