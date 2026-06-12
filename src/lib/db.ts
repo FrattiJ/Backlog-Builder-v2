@@ -35,6 +35,8 @@ async function migrate(db: Database) {
       external_source TEXT,
       metadata TEXT DEFAULT '{}',
       book_subtype TEXT,
+      current_season INTEGER,
+      current_episode INTEGER,
       date_started TEXT,
       date_completed TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -66,6 +68,10 @@ async function migrate(db: Database) {
 
   // Add progress_logged column to existing DBs
   try { await db.execute('ALTER TABLE sessions ADD COLUMN progress_logged INTEGER') } catch {}
+
+  // Add season/episode tracking columns to existing DBs
+  try { await db.execute('ALTER TABLE entries ADD COLUMN current_season INTEGER') } catch {}
+  try { await db.execute('ALTER TABLE entries ADD COLUMN current_episode INTEGER') } catch {}
 
   // Migrate audiobook / manga → books
   await db.execute(`UPDATE entries SET hobby_category = 'books', book_subtype = 'audiobook' WHERE hobby_category = 'audiobooks'`)
@@ -163,10 +169,12 @@ export async function updateEntry(
       progress_total   = COALESCE($5,  progress_total),
       cover_url        = COALESCE($6,  cover_url),
       book_subtype     = COALESCE($7,  book_subtype),
-      date_started     = $8,
-      date_completed   = $9,
-      updated_at       = $10
-    WHERE id = $11`,
+      current_season   = COALESCE($8,  current_season),
+      current_episode  = COALESCE($9,  current_episode),
+      date_started     = $10,
+      date_completed   = $11,
+      updated_at       = $12
+    WHERE id = $13`,
     [
       data.status        ?? null,
       data.rating        ?? null,
@@ -175,6 +183,8 @@ export async function updateEntry(
       data.progress_total   ?? null,
       data.cover_url        ?? null,
       data.book_subtype     ?? null,
+      data.current_season   ?? null,
+      data.current_episode  ?? null,
       data.date_started     ?? null,
       data.date_completed   ?? null,
       now, id,
@@ -204,7 +214,7 @@ export async function getAllSessions(): Promise<Session[]> {
 }
 
 export async function insertSession(
-  data: Omit<Session, 'id' | 'created_at' | 'user_id'>
+  data: Omit<Session, 'id' | 'created_at'>
 ): Promise<Session> {
   const db = await getDb()
   const id = uuid()
@@ -277,6 +287,8 @@ interface RawEntry {
   external_source: string | null
   metadata: string
   book_subtype: BookSubtype | null
+  current_season: number | null
+  current_episode: number | null
   date_started: string | null
   date_completed: string | null
   created_at: string
@@ -286,7 +298,6 @@ interface RawEntry {
 function parseEntry(raw: RawEntry): Entry {
   return {
     ...raw,
-    user_id: 'local',
     metadata: (() => { try { return JSON.parse(raw.metadata) } catch { return {} } })(),
   }
 }

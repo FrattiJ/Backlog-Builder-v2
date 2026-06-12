@@ -59,8 +59,8 @@ export const HOBBIES: HobbyConfig[] = [
   },
   {
     id: 'gundams',
-    label: 'Build',
-    pluralLabel: 'Builds',
+    label: 'Project',
+    pluralLabel: 'Projects',
     accent: '#059669',
     icon: 'Bot',
     progressLabel: '% Complete',
@@ -108,7 +108,7 @@ export const BOOK_SUBTYPES: BookSubtypeConfig[] = [
   { id: 'book',         label: 'Book',         progressLabel: 'Page',    progressUnit: 'pg',  api: 'openlibrary' },
   { id: 'audiobook',    label: 'Audiobook',     progressLabel: 'Progress', progressUnit: '%',  api: 'openlibrary' },
   { id: 'manga',        label: 'Manga',         progressLabel: 'Chapter', progressUnit: 'ch',  api: 'jikan', hasVolume: true },
-  { id: 'comic',        label: 'Comic',         progressLabel: 'Issue',   progressUnit: '#',   api: 'openlibrary' },
+  { id: 'comic',        label: 'Comic',         progressLabel: 'Issue',   progressUnit: 'issue',   api: 'openlibrary' },
   { id: 'webtoon',      label: 'Webtoon',       progressLabel: 'Episode', progressUnit: 'ep',  api: null },
   { id: 'light_novel',  label: 'Light Novel',   progressLabel: 'Chapter', progressUnit: 'ch',  api: 'openlibrary' },
 ]

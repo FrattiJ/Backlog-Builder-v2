@@ -283,7 +283,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
               animation: 'status-blink 3s ease-in-out infinite',
             }}
           />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#2a3a4a', letterSpacing: '0.14em' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#2a3a4a', letterSpacing: '0.14em', whiteSpace: 'nowrap' }}>
             ALL SYSTEMS NOMINAL
           </span>
         </div>

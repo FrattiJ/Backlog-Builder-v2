@@ -11,7 +11,7 @@ const PAGE_META: Record<string, { title: string; category?: HobbyCategory }> = {
   '/movies':            { title: 'MOVIES', category: 'movies' },
   '/tv':                { title: 'TV SHOWS', category: 'tv' },
   '/books':             { title: 'BOOKS', category: 'books' },
-  '/gundams':           { title: 'BUILDS', category: 'gundams' },
+  '/gundams':           { title: 'PROJECTS', category: 'gundams' },
   '/sports':            { title: 'SPORTS', category: 'sports' },
   '/art':               { title: 'ART', category: 'art' },
   '/search':            { title: 'SEARCH' },

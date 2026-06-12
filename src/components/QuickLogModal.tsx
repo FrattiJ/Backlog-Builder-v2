@@ -22,6 +22,8 @@ export default function QuickLogModal({ onClose, onLogged }: QuickLogModalProps)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
+  const [season, setSeason] = useState('')
+  const [episode, setEpisode] = useState('')
 
   useEffect(() => {
     getAllEntries().then((all) =>
@@ -41,8 +43,22 @@ export default function QuickLogModal({ onClose, onLogged }: QuickLogModalProps)
     if (!selected) return
     setSaving(true)
     const wasBacklog = selected.status === 'backlog'
-    const durationMinutes = duration ? parseInt(duration) : null
-    const progressLoggedValue = progressLogged ? parseInt(progressLogged) : null
+
+    let durationMinutes: number | null = null
+    let progressLoggedValue: number | null = null
+
+    if (selected.hobby_category === 'tv') {
+      // For TV: log episodes, and calculate duration if we have episode runtime
+      progressLoggedValue = progressLogged ? parseInt(progressLogged) : null
+      const episodeRuntime = (selected.metadata?.episode_runtime as number) || 0
+      if (progressLoggedValue && episodeRuntime > 0) {
+        durationMinutes = progressLoggedValue * episodeRuntime
+      }
+    } else {
+      // For other categories: use duration or progress_logged
+      durationMinutes = duration ? parseInt(duration) : null
+      progressLoggedValue = progressLogged ? parseInt(progressLogged) : null
+    }
 
     await insertSession({
       entry_id: selected.id,
@@ -58,7 +74,7 @@ export default function QuickLogModal({ onClose, onLogged }: QuickLogModalProps)
       updatePayload.date_started = date
     }
 
-    // Auto-update progress if pages/chapters logged or duration provided
+    // Auto-update progress if pages/chapters logged or episodes/duration provided
     const progressIncrement = progressLoggedValue || durationMinutes
     if (progressIncrement && progressIncrement > 0) {
       const effectiveTotal = selected.progress_total || (selected.hobby_category === 'movies' ? 100 : Number.MAX_SAFE_INTEGER)
@@ -67,6 +83,12 @@ export default function QuickLogModal({ onClose, onLogged }: QuickLogModalProps)
         effectiveTotal
       )
       updatePayload.progress_current = newProgress
+    }
+
+    // For TV shows, update season/episode if provided
+    if (selected.hobby_category === 'tv') {
+      if (season) updatePayload.current_season = parseInt(season)
+      if (episode) updatePayload.current_episode = parseInt(episode)
     }
 
     if (Object.keys(updatePayload).length > 0) {
@@ -131,18 +153,25 @@ export default function QuickLogModal({ onClose, onLogged }: QuickLogModalProps)
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 100,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 16,
-      background: 'rgba(8,10,14,0.92)',
-    }}>
-      <div style={{
-        width: '100%', maxWidth: 560,
-        padding: '1px', clipPath: CLIP, background: '#4a6a8a55',
-        display: 'flex', flexDirection: 'column',
-        maxHeight: '88vh',
+    <div
+      onClick={(e) => { if (e.currentTarget === e.target) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16,
+        background: 'rgba(8,10,14,0.92)',
+        cursor: 'pointer',
       }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 560,
+          padding: '1px', clipPath: CLIP, background: '#4a6a8a55',
+          display: 'flex', flexDirection: 'column',
+          maxHeight: '88vh',
+          cursor: 'default',
+        }}
+      >
         <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
           {/* Accent corner notch */}
           <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: '#4a6a8a', clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
@@ -246,13 +275,39 @@ export default function QuickLogModal({ onClose, onLogged }: QuickLogModalProps)
                     <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} />
                   </div>
 
-                  <div>
-                    <label style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', display: 'block', marginBottom: 5 }}>
-                      DURATION (MIN) — OPTIONAL
-                    </label>
-                    <input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)}
-                      placeholder="e.g. 90" style={inp} />
-                  </div>
+                  {selected.hobby_category === 'tv' ? (
+                    <>
+                      <div>
+                        <label style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', display: 'block', marginBottom: 5 }}>
+                          SEASON — OPTIONAL
+                        </label>
+                        <input type="number" min={1} value={season} onChange={(e) => setSeason(e.target.value)}
+                          placeholder="e.g. 2" style={inp} />
+                      </div>
+                      <div>
+                        <label style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', display: 'block', marginBottom: 5 }}>
+                          EPISODE — OPTIONAL
+                        </label>
+                        <input type="number" min={1} value={episode} onChange={(e) => setEpisode(e.target.value)}
+                          placeholder="e.g. 5" style={inp} />
+                      </div>
+                      <div>
+                        <label style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', display: 'block', marginBottom: 5 }}>
+                          EPISODES WATCHED — OPTIONAL
+                        </label>
+                        <input type="number" min={1} value={progressLogged} onChange={(e) => setProgressLogged(e.target.value)}
+                          placeholder="e.g. 3" style={inp} />
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', display: 'block', marginBottom: 5 }}>
+                        DURATION (MIN) — OPTIONAL
+                      </label>
+                      <input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)}
+                        placeholder="e.g. 90" style={inp} />
+                    </div>
+                  )}
 
                   {selected.hobby_category === 'books' && selected.book_subtype && !['audiobook'].includes(selected.book_subtype) && (
                     <div>

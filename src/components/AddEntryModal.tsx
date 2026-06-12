@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { X, Search, Plus } from 'lucide-react'
 import { insertEntry } from '@/lib/db'
-import { searchIGDB, searchTMDB, fetchTMDBMovieDetails, fetchTMDBTVDetails, searchOpenLibrary, searchJikan } from '@/lib/apiKeys'
+import { searchIGDB, searchTMDB, fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, searchOpenLibrary, searchJikan } from '@/lib/apiKeys'
 import { HOBBY_MAP, STATUS_LABELS, BOOK_SUBTYPES, BOOK_SUBTYPE_MAP } from '@/lib/hobbies'
 import { CLIP } from './MechCard'
 import type { HobbyCategory, EntryStatus, BookSubtype } from '@/types/database'
@@ -119,26 +119,44 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
 
     if (r.volumes != null) setVolumeTotal(String(r.volumes))
 
-    // TV episode count
+    // TV episode count and runtime
     if (hobbyId === 'tv' && r.id) {
       const details = await fetchTMDBTVDetails(r.id)
       if (details.episodes != null) setProgressTotal(String(details.episodes))
+      // Store episode runtime in selected metadata for hour calculations
+      if (details.episodeRuntime) {
+        r.episode_runtime = details.episodeRuntime
+      }
+      // Store additional metadata
+      if (details.creator) r.creator = details.creator
+      if (details.networks) r.networks = details.networks
+      if (details.rating) r.rating = details.rating
     }
 
     // Movie runtime (in minutes)
     if (hobbyId === 'movies' && r.id) {
       const details = await fetchTMDBMovieDetails(r.id)
       if (details.runtime != null) setProgressTotal(String(details.runtime))
+      // Store additional metadata
+      if (details.director) r.director = details.director
+      if (details.studios) r.studios = details.studios
+      if (details.rating) r.rating = details.rating
     }
 
-    // IGDB time-to-beat
-    if (hobbyId === 'games') {
-      const main     = r.time_to_beat_main     != null ? Number(r.time_to_beat_main)     : null
-      const rushed   = r.time_to_beat_rushed   != null ? Number(r.time_to_beat_rushed)   : null
-      const complete = r.time_to_beat_complete != null ? Number(r.time_to_beat_complete) : null
+    // Games: time-to-beat and additional metadata
+    if (hobbyId === 'games' && r.id) {
+      const ttbData = r
+      const main     = ttbData.time_to_beat_main     != null ? Number(ttbData.time_to_beat_main)     : null
+      const rushed   = ttbData.time_to_beat_rushed   != null ? Number(ttbData.time_to_beat_rushed)   : null
+      const complete = ttbData.time_to_beat_complete != null ? Number(ttbData.time_to_beat_complete) : null
       const hasTTB   = main !== null || rushed !== null || complete !== null
       setIgdbTTB(hasTTB ? { main, rushed, complete } : null)
       if (main !== null) setTimeToBeat(String(main))
+
+      // Fetch developers and publishers
+      const details = await fetchRAWGGameDetails(r.id)
+      if (details.developers) r.developers = details.developers
+      if (details.publishers) r.publishers = details.publishers
     }
 
     setResults([])
@@ -170,9 +188,10 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
         external_source:  selected?.source as string ?? null,
         metadata,
         book_subtype:     hobbyId === 'books' ? bookSubtype : null,
+        current_season:   null,
+        current_episode:  null,
         date_started:     status === 'in_progress' ? new Date().toISOString().split('T')[0] : null,
         date_completed:   status === 'completed'   ? new Date().toISOString().split('T')[0] : null,
-        user_id:          'local',
       })
       onAdded()
       onClose()
@@ -214,8 +233,14 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
   )
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(8,10,14,0.92)' }}>
-      <div style={{ width: '100%', maxWidth: 520, padding: '1px', clipPath: CLIP, background: `${effectiveAccent}55`, display: 'flex', flexDirection: 'column', maxHeight: '90vh', overflow: 'hidden' }}>
+    <div
+      onClick={(e) => { if (e.currentTarget === e.target) onClose() }}
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(8,10,14,0.92)', cursor: 'pointer' }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: '100%', maxWidth: 520, padding: '1px', clipPath: CLIP, background: `${effectiveAccent}55`, display: 'flex', flexDirection: 'column', maxHeight: '90vh', overflow: 'hidden', cursor: 'default' }}
+      >
         <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
           {/* Accent corner notch */}
           <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: effectiveAccent, clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
@@ -294,14 +319,23 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
                         <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
                           {r.release_year != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>{String(r.release_year)}</span>}
                           {r.author != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a' }}>{String(r.author)}</span>}
-                          {r.chapters != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: effectiveAccent }}>{String(r.chapters)} CH</span>}
+                          {bookSubtype === 'manga' && (
+                            <>
+                              {r.chapters != null ? (
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: effectiveAccent }}>{String(r.chapters)} CH</span>
+                              ) : (
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#d97706' }}>ONGOING</span>
+                              )}
+                            </>
+                          )}
                           {r.pages != null && bookSubtype === 'audiobook' && (() => {
                             const pages = Number(r.pages)
                             const hours = Math.floor(pages / 26)
                             const mins = Math.round((pages / 26 - hours) * 60)
                             return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: effectiveAccent }}>{hours}h {mins}m</span>
                           })()}
-                          {r.pages != null && bookSubtype !== 'audiobook' && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: effectiveAccent }}>{String(r.pages)} PG</span>}
+                          {r.pages != null && bookSubtype === 'comic' && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: effectiveAccent }}>{String(r.pages)} ISSUE</span>}
+                          {r.pages != null && !['audiobook', 'manga', 'comic'].includes(bookSubtype) && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: effectiveAccent }}>{String(r.pages)} PG</span>}
                         </div>
                       </div>
                     </button>

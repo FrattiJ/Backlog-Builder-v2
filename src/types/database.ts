@@ -12,7 +12,6 @@ export interface Profile {
 
 export interface Entry {
   id: string
-  user_id: string
   hobby_category: HobbyCategory
   title: string
   status: EntryStatus
@@ -25,6 +24,8 @@ export interface Entry {
   external_source: string | null
   metadata: Record<string, unknown>
   book_subtype: BookSubtype | null
+  current_season: number | null
+  current_episode: number | null
   date_started: string | null
   date_completed: string | null
   created_at: string
@@ -34,7 +35,6 @@ export interface Entry {
 export interface Session {
   id: string
   entry_id: string
-  user_id: string
   date: string
   duration_minutes: number | null
   progress_logged: number | null
@@ -46,8 +46,8 @@ export type Database = {
   public: {
     Tables: {
       profiles: { Row: Profile; Insert: Omit<Profile, 'created_at'>; Update: Partial<Omit<Profile, 'id' | 'created_at'>> }
-      entries: { Row: Entry; Insert: Omit<Entry, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Entry, 'id' | 'user_id' | 'created_at' | 'updated_at'>> }
-      sessions: { Row: Session; Insert: Omit<Session, 'id' | 'created_at'>; Update: Partial<Omit<Session, 'id' | 'user_id' | 'created_at'>> }
+      entries: { Row: Entry; Insert: Omit<Entry, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Entry, 'id' | 'created_at' | 'updated_at'>> }
+      sessions: { Row: Session; Insert: Omit<Session, 'id' | 'created_at'>; Update: Partial<Omit<Session, 'id' | 'created_at'>> }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

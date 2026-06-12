@@ -54,6 +54,26 @@ export default function DashboardPage() {
   const completed  = entries.filter((e) => e.status === 'completed')
   const backlog    = entries.filter((e) => e.status === 'backlog')
 
+  // Calculate total hours for games and time-based media
+  const calculateHours = (items: Entry[]) => {
+    let totalHours = 0
+    items.forEach((e) => {
+      if (e.hobby_category === 'games' && e.metadata?.time_to_beat) {
+        totalHours += Number(e.metadata.time_to_beat) || 0
+      } else if ((e.hobby_category === 'movies' || (e.hobby_category === 'books' && e.book_subtype === 'audiobook')) && e.progress_total) {
+        totalHours += Math.round(e.progress_total / 60 * 10) / 10 // convert minutes to hours
+      } else if (e.hobby_category === 'tv' && e.progress_current) {
+        // TV shows: use actual episode runtime from metadata, fallback to 22 min estimate
+        const minPerEpisode = (e.metadata?.episode_runtime as number) || 22
+        totalHours += Math.round((e.progress_current * minPerEpisode) / 60 * 10) / 10
+      }
+    })
+    return totalHours
+  }
+
+  const backlogHours = calculateHours(backlog)
+  const activeHours = calculateHours([...inProgress, ...completed])
+
   // Stat card click: toggle or switch filter
   function handleStatClick(key: StatFilter) {
     setActiveFilter((prev) => prev === key ? null : key)
@@ -136,6 +156,17 @@ export default function DashboardPage() {
         <StatFilterCard label="In Progress"    value={inProgress.length} accent="#0891b2" index={1} filterKey="in_progress" active={activeFilter === 'in_progress'} onClick={() => handleStatClick('in_progress')} />
         <StatFilterCard label="Completed"      value={completed.length}  accent="#22c55e" index={2} filterKey="completed"   active={activeFilter === 'completed'}   onClick={() => handleStatClick('completed')} />
         <StatFilterCard label="Backlog"        value={backlog.length}    accent="#4a6a8a" index={3} filterKey="backlog"      active={activeFilter === 'backlog'}     onClick={() => handleStatClick('backlog')} />
+      </div>
+
+      {/* ── Hours tracking ── */}
+      <div style={{ marginBottom: 28 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', letterSpacing: '0.14em', marginBottom: 8, opacity: 0.7 }}>
+          (Games, Movies, Audiobooks, TV shows @ 22min/ep)
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          <StatCard label="Backlog Hours" value={Math.round(backlogHours * 10) / 10} accent="#6b7280" index={4} />
+          <StatCard label="In Progress + Completed" value={Math.round(activeHours * 10) / 10} accent="#0891b2" index={5} />
+        </div>
       </div>
 
       {/* ── Expanded list panel ── */}

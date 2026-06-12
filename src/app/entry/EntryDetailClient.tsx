@@ -9,6 +9,7 @@ import PhotoGallery from '@/components/PhotoGallery'
 import { HOBBY_MAP, STATUS_LABELS, STATUS_COLORS, BOOK_SUBTYPE_MAP } from '@/lib/hobbies'
 import { CLIP } from '@/components/MechCard'
 import { openHLTB } from '@/lib/hltb'
+import { fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, fetchOpenLibraryDetails, fetchJikanDetails, calculateTVProgressFromSeason } from '@/lib/apiKeys'
 import type { Entry, Session, EntryStatus } from '@/types/database'
 
 const HOBBY_PATHS: Record<string, string> = {
@@ -23,12 +24,15 @@ export default function EntryDetailClient({ id }: { id: string }) {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [updatingDetails, setUpdatingDetails] = useState(false)
 
   const [status, setStatus] = useState<EntryStatus>('backlog')
   const [rating, setRating] = useState('')
   const [notes, setNotes] = useState('')
   const [progressCurrent, setProgressCurrent] = useState('0')
   const [timeToBeat, setTimeToBeat] = useState('')
+  const [currentSeason, setCurrentSeason] = useState('')
+  const [currentEpisode, setCurrentEpisode] = useState('')
 
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0])
   const [sessionHours, setSessionHours] = useState('')
@@ -36,6 +40,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
   const [sessionProgressLogged, setSessionProgressLogged] = useState('')
   const [sessionNotes, setSessionNotes] = useState('')
   const [addingSession, setAddingSession] = useState(false)
+  const [sessionSeason, setSessionSeason] = useState('')
+  const [sessionEpisode, setSessionEpisode] = useState('')
 
   const load = useCallback(async () => {
     const [e, s, p] = await Promise.all([getEntryById(id), getSessionsByEntry(id), getPhotosByEntry(id)])
@@ -46,6 +52,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
       setNotes(e.notes ?? '')
       setProgressCurrent(e.progress_current?.toString() ?? '0')
       setTimeToBeat(e.metadata?.time_to_beat != null ? String(e.metadata.time_to_beat) : '')
+      setCurrentSeason(e.current_season?.toString() ?? '')
+      setCurrentEpisode(e.current_episode?.toString() ?? '')
     }
     setSessions(s)
     setPhotos(p)
@@ -80,17 +88,35 @@ export default function EntryDetailClient({ id }: { id: string }) {
     const e = entry
     setSaving(true)
     const now = new Date().toISOString().split('T')[0]
-    const updated = await updateEntry(e.id, {
+    const updatePayload: Record<string, unknown> = {
       status,
       rating: rating ? parseFloat(rating) : null,
       notes: notes || null,
       progress_current: parseInt(progressCurrent) || 0,
       date_completed: status === 'completed' && !e.date_completed ? now : e.date_completed,
       date_started: status === 'in_progress' && !e.date_started ? now : e.date_started,
-      metadata_patch: e.hobby_category === 'games'
-        ? { time_to_beat: timeToBeat ? parseFloat(timeToBeat) : null }
-        : undefined,
-    })
+    }
+
+    if (e.hobby_category === 'games') {
+      updatePayload.metadata_patch = { time_to_beat: timeToBeat ? parseFloat(timeToBeat) : null }
+    } else if (e.hobby_category === 'tv') {
+      const season = currentSeason ? parseInt(currentSeason) : null
+      const episode = currentEpisode ? parseInt(currentEpisode) : null
+
+      updatePayload.current_season = season
+      updatePayload.current_episode = episode
+
+      // Calculate progress from season/episode
+      if (season && episode && e.external_id) {
+        const calculatedProgress = await calculateTVProgressFromSeason(e.external_id, season, episode)
+        if (calculatedProgress !== null && calculatedProgress > 0) {
+          updatePayload.progress_current = calculatedProgress
+          setProgressCurrent(calculatedProgress.toString())
+        }
+      }
+    }
+
+    const updated = await updateEntry(e.id, updatePayload)
     setEntry(updated)
     setSaving(false)
   }
@@ -98,10 +124,25 @@ export default function EntryDetailClient({ id }: { id: string }) {
   async function handleAddSession() {
     if (!entry) return
     setAddingSession(true)
-    const hours = sessionHours ? parseInt(sessionHours) : 0
-    const minutes = sessionMinutes ? parseInt(sessionMinutes) : 0
-    const durationMinutes = hours > 0 || minutes > 0 ? hours * 60 + minutes : null
-    const progressLogged = sessionProgressLogged ? parseInt(sessionProgressLogged) : null
+
+    let durationMinutes: number | null = null
+    let progressLogged: number | null = null
+
+    if (entry.hobby_category === 'tv') {
+      // For TV: log episodes, and calculate duration if we have episode runtime
+      progressLogged = sessionProgressLogged ? parseInt(sessionProgressLogged) : null
+      const episodeRuntime = (entry.metadata?.episode_runtime as number) || 0
+      if (progressLogged && episodeRuntime > 0) {
+        durationMinutes = progressLogged * episodeRuntime
+      }
+    } else {
+      // For other categories: use hours and minutes
+      const hours = sessionHours ? parseInt(sessionHours) : 0
+      const minutes = sessionMinutes ? parseInt(sessionMinutes) : 0
+      durationMinutes = hours > 0 || minutes > 0 ? hours * 60 + minutes : null
+      progressLogged = sessionProgressLogged ? parseInt(sessionProgressLogged) : null
+    }
+
     const s = await insertSession({
       entry_id: entry.id,
       date: sessionDate,
@@ -114,16 +155,41 @@ export default function EntryDetailClient({ id }: { id: string }) {
     setSessionMinutes('')
     setSessionProgressLogged('')
     setSessionNotes('')
+    setSessionSeason('')
+    setSessionEpisode('')
 
-    // Auto-update progress if pages/chapters logged or duration provided
+    // Auto-update progress if pages/chapters logged or episodes logged
     const progressIncrement = progressLogged || durationMinutes
+    const updateData: Record<string, unknown> = {}
+
     if (progressIncrement && progressIncrement > 0) {
       const newProgress = Math.min(
         (parseInt(progressCurrent) || 0) + progressIncrement,
         effectiveProgressTotal || Number.MAX_SAFE_INTEGER
       )
       setProgressCurrent(newProgress.toString())
-      const updated = await updateEntry(entry.id, { progress_current: newProgress })
+      updateData.progress_current = newProgress
+    }
+
+    // For TV shows, update season/episode if provided and calculate progress
+    if (entry.hobby_category === 'tv') {
+      const season = sessionSeason ? parseInt(sessionSeason) : null
+      const episode = sessionEpisode ? parseInt(sessionEpisode) : null
+
+      if (season && episode && entry.external_id) {
+        updateData.current_season = season
+        updateData.current_episode = episode
+        // Calculate progress from season/episode
+        const calculatedProgress = await calculateTVProgressFromSeason(entry.external_id, season, episode)
+        if (calculatedProgress !== null) {
+          updateData.progress_current = calculatedProgress
+          setProgressCurrent(calculatedProgress.toString())
+        }
+      }
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      const updated = await updateEntry(entry.id, updateData)
       setEntry(updated)
     }
 
@@ -131,8 +197,32 @@ export default function EntryDetailClient({ id }: { id: string }) {
   }
 
   async function handleDeleteSession(sid: string) {
+    if (!entry) return
+
+    // Find the session to get progress_logged
+    const deletedSession = sessions.find((s) => s.id === sid)
+
     await deleteSession(sid)
     setSessions(sessions.filter((s) => s.id !== sid))
+
+    // Subtract progress from the session
+    if (deletedSession) {
+      let progressToSubtract = 0
+
+      // Use progress_logged if available, otherwise use duration_minutes
+      if (deletedSession.progress_logged && deletedSession.progress_logged > 0) {
+        progressToSubtract = deletedSession.progress_logged
+      } else if (deletedSession.duration_minutes && deletedSession.duration_minutes > 0) {
+        progressToSubtract = deletedSession.duration_minutes
+      }
+
+      if (progressToSubtract > 0) {
+        const newProgress = Math.max(0, (parseInt(progressCurrent) || 0) - progressToSubtract)
+        setProgressCurrent(newProgress.toString())
+        const updated = await updateEntry(entry.id, { progress_current: newProgress })
+        setEntry(updated)
+      }
+    }
   }
 
   async function handleDeleteEntry() {
@@ -142,11 +232,69 @@ export default function EntryDetailClient({ id }: { id: string }) {
     router.push(HOBBY_PATHS[entry.hobby_category])
   }
 
+  async function handleUpdateDetails() {
+    if (!entry || !entry.external_id) return
+    setUpdatingDetails(true)
+
+    const metadata = { ...entry.metadata } as Record<string, unknown>
+
+    try {
+      if (entry.hobby_category === 'games') {
+        const details = await fetchRAWGGameDetails(entry.external_id)
+        if (details.developers) metadata.developers = details.developers
+        if (details.publishers) metadata.publishers = details.publishers
+        if (details.platforms) metadata.platforms = details.platforms
+        if (details.rating) metadata.rating = details.rating
+      } else if (entry.hobby_category === 'movies') {
+        const details = await fetchTMDBMovieDetails(entry.external_id)
+        if (details.director) metadata.director = details.director
+        if (details.studios) metadata.studios = details.studios
+        if (details.rating) metadata.rating = details.rating
+      } else if (entry.hobby_category === 'tv') {
+        const details = await fetchTMDBTVDetails(entry.external_id)
+        if (details.creator) metadata.creator = details.creator
+        if (details.networks) metadata.networks = details.networks
+        if (details.rating) metadata.rating = details.rating
+      } else if (entry.hobby_category === 'books') {
+        if (entry.book_subtype === 'manga') {
+          const details = await fetchJikanDetails(entry.external_id)
+          if (details.author) metadata.author = details.author
+          if (details.rating) metadata.rating = details.rating
+          if (details.chapters) metadata.chapters = details.chapters
+        } else {
+          const details = await fetchOpenLibraryDetails(entry.external_id)
+          if (details.author) metadata.author = details.author
+          if (details.publisher) metadata.publisher = details.publisher
+        }
+      }
+
+      const updatePayload: Record<string, unknown> = { metadata_patch: metadata }
+      // For manga, also update progress_total to the latest chapter count
+      if (entry.hobby_category === 'books' && entry.book_subtype === 'manga' && (metadata.chapters as number) > 0) {
+        updatePayload.progress_total = metadata.chapters
+      }
+
+      const updated = await updateEntry(entry.id, updatePayload)
+      setEntry(updated)
+    } catch (e) {
+      console.error('Failed to update details:', e)
+    }
+
+    setUpdatingDetails(false)
+  }
+
   return (
-    <div style={{ padding: 32, maxWidth: 1000, margin: '0 auto' }}>
-      <Link href={HOBBY_PATHS[entry.hobby_category]} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, marginBottom: 24, color: '#4a6a8a', textDecoration: 'none', transition: 'color 0.15s ease' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#f0f4f8')} onMouseLeave={(e) => (e.currentTarget.style.color = '#4a6a8a')}>
-        <ArrowLeft size={14} /> Back to {hobby.pluralLabel.toUpperCase()}
-      </Link>
+    <div
+      onClick={() => router.push(HOBBY_PATHS[entry.hobby_category])}
+      style={{ minHeight: '100vh', padding: 32, cursor: 'pointer' }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 1000, margin: '0 auto', cursor: 'default' }}
+      >
+        <Link href={HOBBY_PATHS[entry.hobby_category]} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, marginBottom: 24, color: '#4a6a8a', textDecoration: 'none', transition: 'color 0.15s ease' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#f0f4f8')} onMouseLeave={(e) => (e.currentTarget.style.color = '#4a6a8a')}>
+          <ArrowLeft size={14} /> Back to {hobby.pluralLabel.toUpperCase()}
+        </Link>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 32 }}>
         {/* Cover */}
@@ -163,13 +311,20 @@ export default function EntryDetailClient({ id }: { id: string }) {
 
           {entry.metadata && Object.keys(entry.metadata).length > 0 && (
             <div style={{ background: '#0d1117', border: `1px solid ${hobby.accent}33`, borderLeft: `3px solid ${hobby.accent}`, padding: 12 }}>
-              {(['genres', 'release_year', 'author', 'volumes', 'chapters'] as const).map((key) => {
+              {(['genres', 'release_year', 'author', 'publisher', 'volumes', 'chapters', 'rating', 'platforms', 'developers', 'studios', 'director', 'networks', 'creator'] as const).map((key) => {
                 const val = entry.metadata[key]
-                if (val == null) return null
+                if (val == null || val === '') return null
+                const displayKey = key
+                  .replace(/_/g, ' ')
+                  .replace(/([A-Z])/g, ' $1')
+                  .toLowerCase()
+                  .replace(/^./, (c) => c.toUpperCase())
                 return (
                   <div key={key} style={{ marginBottom: 8 }}>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>{key.replace('_', ' ')}</p>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#f0f4f8', margin: 0, marginTop: 2 }}>{String(val)}</p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>{displayKey}</p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#f0f4f8', margin: 0, marginTop: 2, lineHeight: 1.4 }}>
+                      {typeof val === 'number' && key === 'rating' ? `${val.toFixed(1)}/10` : String(val)}
+                    </p>
                   </div>
                 )
               })}
@@ -278,6 +433,23 @@ export default function EntryDetailClient({ id }: { id: string }) {
               })()}
             </div>
 
+            {/* Season & Episode — TV shows only */}
+            {entry.hobby_category === 'tv' && (
+              <div>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>CURRENT POSITION</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>SEASON</label>
+                    <input type="number" min={1} value={currentSeason} onChange={(e) => setCurrentSeason(e.target.value)} placeholder="e.g. 2" style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#4a6a8a', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>EPISODE</label>
+                    <input type="number" min={1} value={currentEpisode} onChange={(e) => setCurrentEpisode(e.target.value)} placeholder="e.g. 5" style={inp} />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Time to Beat — games only */}
             {entry.hobby_category === 'games' && (
               <div>
@@ -342,7 +514,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
               />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #1a2a3a' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 8, borderTop: '1px solid #1a2a3a', flexWrap: 'wrap' }}>
               <button onClick={handleDeleteEntry}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#f87171', background: 'rgba(239,68,68,0.15)', border: '1px solid #ef444466', cursor: 'pointer', transition: 'all 0.15s ease' }}
                 onMouseEnter={(e) => (e.currentTarget.style.filter = 'drop-shadow(0 0 6px #ef444444)')}
@@ -350,19 +522,31 @@ export default function EntryDetailClient({ id }: { id: string }) {
               >
                 <Trash2 size={11} /> DELETE
               </button>
-              <button onClick={handleSave} disabled={saving}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: hobby.accent, background: `${hobby.accent}22`, border: `1px solid ${hobby.accent}`, borderLeft: `3px solid ${hobby.accent}`, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, transition: 'all 0.15s ease' }}
-                onMouseEnter={(e) => { if (!saving) e.currentTarget.style.filter = `drop-shadow(0 0 6px ${hobby.accent}44)` }}
-                onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
-              >
-                <Save size={11} />
-                {saving ? 'SAVING…' : 'SAVE'}
-              </button>
+              <div style={{ display: 'flex', gap: 8, flex: 1, justifyContent: 'flex-end', minWidth: 300 }}>
+                {entry?.external_id && (entry.hobby_category === 'games' || entry.hobby_category === 'movies' || entry.hobby_category === 'tv' || entry.hobby_category === 'books') && (
+                  <button onClick={handleUpdateDetails} disabled={updatingDetails}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#9ca3af', background: 'rgba(156,163,175,0.15)', border: '1px solid #9ca3af66', cursor: updatingDetails ? 'not-allowed' : 'pointer', opacity: updatingDetails ? 0.6 : 1, transition: 'all 0.15s ease' }}
+                    onMouseEnter={(e) => { if (!updatingDetails) e.currentTarget.style.filter = 'drop-shadow(0 0 6px #9ca3af44)' }}
+                    onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+                  >
+                    <ExternalLink size={11} />
+                    {updatingDetails ? 'UPDATING…' : 'UPDATE DETAILS'}
+                  </button>
+                )}
+                <button onClick={handleSave} disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: hobby.accent, background: `${hobby.accent}22`, border: `1px solid ${hobby.accent}`, borderLeft: `3px solid ${hobby.accent}`, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, transition: 'all 0.15s ease' }}
+                  onMouseEnter={(e) => { if (!saving) e.currentTarget.style.filter = `drop-shadow(0 0 6px ${hobby.accent}44)` }}
+                  onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+                >
+                  <Save size={11} />
+                  {saving ? 'SAVING…' : 'SAVE'}
+                </button>
+              </div>
             </div>
             </div>
           </div>
 
-          {/* Photo Gallery — Builds & Art only */}
+          {/* Photo Gallery — Projects & Art only */}
           {(entry.hobby_category === 'gundams' || entry.hobby_category === 'art') && (
             <div style={{ padding: '1px', clipPath: CLIP, background: `${hobby.accent}55` }}>
               <div style={{ background: '#0d1117', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
@@ -386,19 +570,38 @@ export default function EntryDetailClient({ id }: { id: string }) {
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#f0f4f8', margin: 0, marginBottom: 16, letterSpacing: '0.1em' }}>SESSION LOG</h2>
 
             <div style={{ background: '#080a0e', border: `1px solid #1a2a3a`, borderLeft: `2px solid ${hobby.accent}66`, padding: 12, marginBottom: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: entry.hobby_category === 'books' ? '1fr 0.5fr 0.5fr 1fr' : '1fr 0.5fr 0.5fr', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: entry.hobby_category === 'tv' ? '1fr 0.5fr 0.5fr 0.5fr 0.5fr' : entry.hobby_category === 'books' ? '1fr 0.5fr 0.5fr 1fr' : '1fr 0.5fr 0.5fr', gap: 12, marginBottom: 12 }}>
                 <div>
                   <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>DATE</p>
                   <input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} style={inp} />
                 </div>
-                <div>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>HOURS</p>
-                  <input type="number" min={0} max={23} value={sessionHours} onChange={(e) => setSessionHours(e.target.value)} placeholder="0" style={inp} />
-                </div>
-                <div>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>MINS</p>
-                  <input type="number" min={0} max={59} value={sessionMinutes} onChange={(e) => setSessionMinutes(e.target.value)} placeholder="0" style={inp} />
-                </div>
+                {entry.hobby_category === 'tv' ? (
+                  <>
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>SEASON</p>
+                      <input type="number" min={1} value={sessionSeason} onChange={(e) => setSessionSeason(e.target.value)} placeholder="S" style={inp} />
+                    </div>
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>EPISODE</p>
+                      <input type="number" min={1} value={sessionEpisode} onChange={(e) => setSessionEpisode(e.target.value)} placeholder="E" style={inp} />
+                    </div>
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>EPISODES</p>
+                      <input type="number" min={1} value={sessionProgressLogged} onChange={(e) => setSessionProgressLogged(e.target.value)} placeholder="e.g. 3" style={inp} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>HOURS</p>
+                      <input type="number" min={0} max={23} value={sessionHours} onChange={(e) => setSessionHours(e.target.value)} placeholder="0" style={inp} />
+                    </div>
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>MINS</p>
+                      <input type="number" min={0} max={59} value={sessionMinutes} onChange={(e) => setSessionMinutes(e.target.value)} placeholder="0" style={inp} />
+                    </div>
+                  </>
+                )}
                 {entry.hobby_category === 'books' && entry.book_subtype && !['audiobook'].includes(entry.book_subtype) && (
                   <div>
                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4a6a8a', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6, margin: 0 }}>
@@ -429,12 +632,17 @@ export default function EntryDetailClient({ id }: { id: string }) {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: '#f0f4f8' }}>{s.date}</span>
+                        {entry.hobby_category === 'tv' && s.progress_logged && (
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, padding: '2px 8px', background: `${hobby.accent}22`, color: hobby.accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                            {`${s.progress_logged} EP`}
+                          </span>
+                        )}
                         {s.progress_logged && entry.hobby_category === 'books' && entry.book_subtype && !['audiobook'].includes(entry.book_subtype) && (
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, padding: '2px 8px', background: `${hobby.accent}22`, color: hobby.accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                             {`${s.progress_logged} ${BOOK_SUBTYPE_MAP[entry.book_subtype].progressUnit.toUpperCase()}`}
                           </span>
                         )}
-                        {s.duration_minutes && (
+                        {s.duration_minutes && entry.hobby_category !== 'tv' && (
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, padding: '2px 8px', background: `${hobby.accent}22`, color: hobby.accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                             {s.duration_minutes < 60 ? `${s.duration_minutes}M` : `${Math.floor(s.duration_minutes / 60)}H ${s.duration_minutes % 60}M`}
                           </span>
@@ -452,6 +660,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )
