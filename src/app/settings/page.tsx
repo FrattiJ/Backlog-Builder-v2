@@ -8,6 +8,7 @@ import { getTheme, setTheme, type Theme } from '@/lib/theme'
 import type { Profile, HobbyCategory } from '@/types/database'
 import { HOBBIES } from '@/lib/hobbies'
 import { useHobbies } from '@/components/HobbyContext'
+import AvatarCropModal from '@/components/AvatarCropModal'
 import {
   Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
 } from 'lucide-react'
@@ -16,37 +17,16 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
   Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
 }
 
-function compressImage(file: File, maxWidth = 200, quality = 0.85): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        const scale = Math.min(1, maxWidth / img.width)
-        canvas.width = Math.round(img.width * scale)
-        canvas.height = Math.round(img.height * scale)
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        resolve(canvas.toDataURL('image/jpeg', quality))
-      }
-      img.onerror = reject
-      img.src = e.target!.result as string
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [username, setUsername] = useState('')
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [uploading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [theme, setThemeState] = useState<Theme>('dark')
+  const [cropFile, setCropFile] = useState<File | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { enabledIds, setEnabledIds } = useHobbies()
 
@@ -73,21 +53,17 @@ export default function SettingsPage() {
     await setEnabledIds(next)
   }
 
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setUploading(true)
-    try {
-      const dataUrl = await compressImage(file)
-      setAvatarUrl(dataUrl)
-      setMessage({ type: 'success', text: 'Avatar uploaded!' })
-    } catch (err) {
-      console.error('Avatar upload failed:', err)
-      setMessage({ type: 'error', text: 'Failed to upload avatar.' })
-    } finally {
-      setUploading(false)
-      if (inputRef.current) inputRef.current.value = ''
-    }
+    setCropFile(file)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  function handleCropComplete(dataUrl: string) {
+    setAvatarUrl(dataUrl)
+    setCropFile(null)
+    setMessage({ type: 'success', text: 'Avatar updated — save to keep changes.' })
   }
 
   function handleClearAvatar() {
@@ -144,7 +120,7 @@ export default function SettingsPage() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               {avatarUrl ? (
                 <div style={{ position: 'relative' }}>
-                  <img src={avatarUrl} alt="" style={{ width: 80, height: 80, objectFit: 'cover', border: '1px solid #7c3aed66' }} />
+                  <img src={avatarUrl} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: '50%', border: '2px solid #7c3aed66' }} />
                   <button
                     onClick={handleClearAvatar}
                     style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, background: '#ef4444', border: 'none', color: '#fff', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}
@@ -191,7 +167,7 @@ export default function SettingsPage() {
                   onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
                 >
                   <Upload size={11} />
-                  {uploading ? 'UPLOADING…' : 'CHOOSE IMAGE'}
+                  CHOOSE IMAGE
                 </button>
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', marginTop: 8, margin: 0 }}>
                   JPG, PNG recommended. Max 200×200 after compression.
@@ -369,6 +345,14 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
+
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onComplete={handleCropComplete}
+          onCancel={() => setCropFile(null)}
+        />
+      )}
 
       {/* Data Info Panel */}
       <div style={{ padding: '1px', clipPath: CLIP, background: 'color-mix(in srgb, var(--text-dim) 33%, transparent)' }}>

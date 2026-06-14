@@ -32,7 +32,9 @@ interface NavItemProps {
 }
 
 function NavItem({ href, icon: Icon, label, accent, pathname }: NavItemProps) {
-  const active = pathname === href || (href !== '/dashboard' && href !== '/' && pathname.startsWith(href))
+  const p = pathname.replace(/\/$/, '') || '/'
+  const active = p === href || (href !== '/' && href !== '/dashboard' && href !== '/settings' && p.startsWith(href))
+  const color = active ? (accent ?? 'var(--text-mid)') : undefined
   return (
     <Link
       href={href}
@@ -47,7 +49,7 @@ function NavItem({ href, icon: Icon, label, accent, pathname }: NavItemProps) {
         letterSpacing: '0.06em',
         color: active ? 'var(--text-hi)' : 'var(--text-dim)',
         background: active ? 'rgba(255,255,255,0.04)' : 'transparent',
-        borderLeft: active && accent ? `3px solid ${accent}` : '3px solid transparent',
+        borderLeft: active ? `3px solid ${color}` : '3px solid transparent',
         transition: 'all 0.15s ease',
         textDecoration: 'none',
         position: 'relative',
@@ -55,8 +57,7 @@ function NavItem({ href, icon: Icon, label, accent, pathname }: NavItemProps) {
       onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = 'var(--text-mid)' }}
       onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = 'var(--text-dim)' }}
     >
-      {/* Active bar pulse */}
-      {active && accent && (
+      {active && (
         <span
           style={{
             position: 'absolute',
@@ -65,7 +66,7 @@ function NavItem({ href, icon: Icon, label, accent, pathname }: NavItemProps) {
             transform: 'translateY(-50%)',
             width: 3,
             height: '60%',
-            background: accent,
+            background: color,
             animation: 'pulse-bar 2s ease-in-out infinite',
           }}
         />
@@ -246,48 +247,26 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
       </nav>
 
       {/* ── User + status ───────────────────────────────────────────────────── */}
-      <div style={{ borderTop: '1px solid var(--border-dim)', padding: '12px 16px' }}>
+      <div style={{ borderTop: '1px solid var(--border-dim)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {profile && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 10,
-              padding: '6px 8px',
-              borderLeft: '2px solid var(--text-dim)',
-              background: 'color-mix(in srgb, var(--text-dim) 6%, transparent)',
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+              <img src={profile.avatar_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid #7c3aed66', flexShrink: 0 }} />
             ) : (
-              <div
-                style={{
-                  width: 22, height: 22,
-                  background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-                  clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-                  flexShrink: 0,
-                }}
-              />
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #7c3aed66', flexShrink: 0 }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#fff' }}>
+                  {(profile.username ?? 'O')[0].toUpperCase()}
+                </span>
+              </div>
             )}
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mid)', letterSpacing: '0.08em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-mid)', letterSpacing: '0.1em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {(profile.username ?? 'OPERATOR').toUpperCase()}
             </span>
           </div>
         )}
 
-        {/* Status line */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span
-            style={{
-              width: 6, height: 6,
-              borderRadius: '50%',
-              background: '#22c55e',
-              flexShrink: 0,
-              animation: 'status-blink 3s ease-in-out infinite',
-            }}
-          />
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0, animation: 'status-blink 3s ease-in-out infinite' }} />
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-mute)', letterSpacing: '0.14em', whiteSpace: 'nowrap' }}>
             ALL SYSTEMS NOMINAL
           </span>

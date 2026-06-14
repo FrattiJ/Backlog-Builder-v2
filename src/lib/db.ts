@@ -96,6 +96,11 @@ function notifyEntriesChanged() {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(ENTRIES_CHANGED_EVENT))
 }
 
+export const PROFILE_CHANGED_EVENT = 'profile-changed'
+function notifyProfileChanged() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(PROFILE_CHANGED_EVENT))
+}
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 export async function getProfile(): Promise<Profile> {
@@ -120,6 +125,7 @@ export async function updateProfile(data: { username?: string; bio?: string | nu
     `UPDATE profile SET username = COALESCE($1, username), bio = $2, avatar_url = $3 WHERE id = 1`,
     [data.username ?? null, data.bio ?? null, data.avatar_url ?? null]
   )
+  notifyProfileChanged()
 }
 
 // ── Entries ───────────────────────────────────────────────────────────────────

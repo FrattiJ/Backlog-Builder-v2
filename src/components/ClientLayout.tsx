@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from './Sidebar'
 import type { Profile, HobbyCategory } from '@/types/database'
-import { getProfile, setEnabledHobbies } from '@/lib/db'
+import { getProfile, setEnabledHobbies, PROFILE_CHANGED_EVENT } from '@/lib/db'
 import { getTheme, applyTheme } from '@/lib/theme'
 import { HOBBIES } from '@/lib/hobbies'
 import { HobbyContext } from './HobbyContext'
@@ -14,8 +14,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [ready, setReady] = useState(false)
   const [enabledIds, setEnabledIds] = useState<HobbyCategory[]>(HOBBIES.map((h) => h.id))
 
-  useEffect(() => {
-    applyTheme(getTheme())
+  const loadProfile = useCallback(() => {
     getProfile()
       .then((p) => {
         setProfile(p)
@@ -28,6 +27,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       })
       .finally(() => setReady(true))
   }, [])
+
+  useEffect(() => {
+    applyTheme(getTheme())
+    loadProfile()
+    window.addEventListener(PROFILE_CHANGED_EVENT, loadProfile)
+    return () => window.removeEventListener(PROFILE_CHANGED_EVENT, loadProfile)
+  }, [loadProfile])
 
   const handleSetEnabledIds = useCallback(async (ids: HobbyCategory[]) => {
     await setEnabledHobbies(ids)
