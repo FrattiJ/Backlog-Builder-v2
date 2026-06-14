@@ -80,6 +80,19 @@ export default function EntryCard({ entry, index = 0 }: { entry: Entry; index?: 
 
           {/* Badges row */}
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
+            {entry.status === 'backlog' && entry.priority != null && (
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 14,
+                letterSpacing: '0.12em',
+                padding: '2px 7px',
+                background: '#d9770618',
+                color: '#d97706',
+                border: '1px solid #d9770644',
+              }}>
+                #{entry.priority}
+              </span>
+            )}
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 14,

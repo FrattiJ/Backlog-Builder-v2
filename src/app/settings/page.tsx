@@ -1,10 +1,20 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Save, User, Upload, X } from 'lucide-react'
+import { Save, User, Upload, X, Moon, Sun, Check } from 'lucide-react'
 import { getProfile, updateProfile } from '@/lib/db'
 import { CLIP } from '@/components/MechCard'
-import type { Profile } from '@/types/database'
+import { getTheme, setTheme, type Theme } from '@/lib/theme'
+import type { Profile, HobbyCategory } from '@/types/database'
+import { HOBBIES } from '@/lib/hobbies'
+import { useHobbies } from '@/components/HobbyContext'
+import {
+  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+} from 'lucide-react'
+
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
+  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+}
 
 function compressImage(file: File, maxWidth = 200, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -36,9 +46,12 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [theme, setThemeState] = useState<Theme>('dark')
   const inputRef = useRef<HTMLInputElement>(null)
+  const { enabledIds, setEnabledIds } = useHobbies()
 
   useEffect(() => {
+    setThemeState(getTheme())
     getProfile().then((p) => {
       setProfile(p)
       setUsername(p.username)
@@ -46,6 +59,19 @@ export default function SettingsPage() {
       setAvatarUrl(p.avatar_url ?? '')
     })
   }, [])
+
+  function handleThemeChange(t: Theme) {
+    setTheme(t)
+    setThemeState(t)
+  }
+
+  async function toggleHobby(id: HobbyCategory) {
+    const next = enabledIds.includes(id)
+      ? enabledIds.filter((x) => x !== id)
+      : [...enabledIds, id]
+    if (next.length === 0) return // must keep at least one
+    await setEnabledIds(next)
+  }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -243,6 +269,104 @@ export default function SettingsPage() {
             <Save size={11} />
             {saving ? 'SAVING…' : 'SAVE CHANGES'}
           </button>
+        </div>
+      </div>
+
+      {/* Appearance Panel */}
+      <div style={{ padding: '1px', clipPath: CLIP, background: '#0891b255', marginBottom: 24 }}>
+        <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
+          {/* Accent corner notch */}
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: '#0891b2', clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
+
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-hi)', margin: 0, marginBottom: 12, letterSpacing: '0.1em' }}>
+            APPEARANCE
+          </h2>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>DISPLAY MODE</p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            {([
+              { id: 'dark' as Theme, label: 'DARK MODE', Icon: Moon },
+              { id: 'light' as Theme, label: 'LIGHT MODE', Icon: Sun },
+            ]).map(({ id, label, Icon }) => {
+              const active = theme === id
+              return (
+                <button key={id} onClick={() => handleThemeChange(id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 16px',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 14,
+                    letterSpacing: '0.12em',
+                    background: active ? '#0891b222' : 'transparent',
+                    border: `1px solid ${active ? '#0891b2' : 'var(--border-dim)'}`,
+                    borderLeft: active ? '2px solid #0891b2' : '1px solid var(--border-dim)',
+                    color: active ? '#0891b2' : 'var(--text-dim)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = 'var(--text-mid)' }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = 'var(--text-dim)' }}
+                >
+                  <Icon size={13} />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Hobby Modules Panel */}
+      <div style={{ padding: '1px', clipPath: CLIP, background: '#05966955', marginBottom: 24 }}>
+        <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: '#059669', clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
+
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-hi)', margin: 0, marginBottom: 6, letterSpacing: '0.1em' }}>
+            HOBBY MODULES
+          </h2>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.04em', margin: '0 0 16px' }}>
+            Toggle which categories appear in the sidebar and add menu.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+            {HOBBIES.map((hobby) => {
+              const Icon = ICON_MAP[hobby.icon]
+              const active = enabledIds.includes(hobby.id)
+              const isLast = enabledIds.length === 1 && active
+              return (
+                <button
+                  key={hobby.id}
+                  onClick={() => toggleHobby(hobby.id)}
+                  title={isLast ? 'At least one module must remain active' : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px',
+                    background: active ? `${hobby.accent}14` : 'var(--bg-base)',
+                    border: `1px solid ${active ? hobby.accent : 'var(--border-dim)'}`,
+                    borderLeft: `2px solid ${active ? hobby.accent : 'var(--border-dim)'}`,
+                    cursor: isLast ? 'not-allowed' : 'pointer',
+                    opacity: isLast ? 0.5 : 1,
+                    transition: 'all 0.15s ease',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ color: active ? hobby.accent : 'var(--text-dim)', flexShrink: 0 }}>
+                    {Icon && <Icon size={14} />}
+                  </span>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 13,
+                    color: active ? 'var(--text-hi)' : 'var(--text-dim)',
+                    letterSpacing: '0.06em', flex: 1,
+                  }}>
+                    {hobby.pluralLabel.toUpperCase()}
+                  </span>
+                  {active && <Check size={12} style={{ color: hobby.accent, flexShrink: 0 }} />}
+                </button>
+              )
+            })}
+          </div>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-mute)', letterSpacing: '0.06em', margin: '12px 0 0' }}>
+            {enabledIds.length} OF {HOBBIES.length} MODULES ACTIVE — changes save instantly
+          </p>
         </div>
       </div>
 

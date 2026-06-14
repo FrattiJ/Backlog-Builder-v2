@@ -200,6 +200,7 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
         book_subtype:     hobbyId === 'books' ? bookSubtype : null,
         current_season:   null,
         current_episode:  null,
+        priority:         null,
         date_started:     status === 'in_progress' ? new Date().toISOString().split('T')[0] : null,
         date_completed:   status === 'completed'   ? new Date().toISOString().split('T')[0] : null,
       })

@@ -5,6 +5,7 @@ import AddEntryModal from './AddEntryModal'
 import { HOBBIES } from '@/lib/hobbies'
 import { CLIP } from './MechCard'
 import type { HobbyCategory } from '@/types/database'
+import { useHobbies } from './HobbyContext'
 import {
   Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
 } from 'lucide-react'
@@ -20,6 +21,7 @@ interface QuickAddPanelProps {
 
 export default function QuickAddPanel({ onClose, onAdded }: QuickAddPanelProps) {
   const [selectedHobby, setSelectedHobby] = useState<HobbyCategory | null>(null)
+  const { enabledHobbies } = useHobbies()
 
   if (selectedHobby) {
     return (
@@ -56,7 +58,7 @@ export default function QuickAddPanel({ onClose, onAdded }: QuickAddPanelProps) 
         </div>
 
         <div style={{ padding: 8 }}>
-          {HOBBIES.map((hobby) => {
+          {enabledHobbies.map((hobby) => {
             const Icon = ICON_MAP[hobby.icon]
             return (
               <button

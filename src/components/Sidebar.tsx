@@ -12,6 +12,7 @@ import type { Profile } from '@/types/database'
 import { HOBBIES } from '@/lib/hobbies'
 import QuickAddPanel from './QuickAddPanel'
 import QuickLogModal from './QuickLogModal'
+import { useHobbies } from './HobbyContext'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
   Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
@@ -101,6 +102,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
   const pathname = usePathname()
   const [showAdd, setShowAdd] = useState(false)
   const [showLog, setShowLog] = useState(false)
+  const { enabledHobbies } = useHobbies()
 
   return (
     <>
@@ -134,18 +136,20 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
 
         <Link
           href="/dashboard"
-          style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
         >
-          {/* Diamond icon */}
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-              clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-              flexShrink: 0,
-            }}
-          />
+          {/* H+bars logomark */}
+          <svg width="28" height="28" viewBox="0 0 400 400" style={{ flexShrink: 0 }}>
+            <rect width="400" height="400" fill="#06070d"/>
+            <polygon points="52,0 400,0 400,348 348,400 0,400 0,52" fill="#0d1117"/>
+            <polygon points="0,0 52,0 0,52" fill="#7c3aed"/>
+            <polygon points="52,0 400,0 400,348 348,400 0,400 0,52" fill="none" stroke="#7c3aed" stroke-width="8"/>
+            <rect x="54"  y="72"  width="80" height="272" fill="#e2e8f0"/>
+            <rect x="54"  y="200" width="218" height="38" fill="#e2e8f0"/>
+            <rect x="148" y="302" width="62"  height="42"  fill="#7c3aed"/>
+            <rect x="220" y="200" width="62"  height="144" fill="#7c3aed"/>
+            <rect x="292" y="72"  width="68"  height="272" fill="#7c3aed"/>
+          </svg>
           <span
             style={{
               fontFamily: 'var(--font-display)',
@@ -220,7 +224,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
         <NavItem href="/stats"     icon={BarChart2}        label="Stats"     pathname={pathname} />
 
         <SectionLabel>HOBBIES</SectionLabel>
-        {HOBBIES.map((hobby) => {
+        {enabledHobbies.map((hobby) => {
           const Icon = ICON_MAP[hobby.icon]
           if (!Icon) return null
           return (

@@ -37,6 +37,7 @@ async function migrate(db: Database) {
       book_subtype TEXT,
       current_season INTEGER,
       current_episode INTEGER,
+      priority INTEGER,
       date_started TEXT,
       date_completed TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -73,9 +74,15 @@ async function migrate(db: Database) {
   try { await db.execute('ALTER TABLE entries ADD COLUMN current_season INTEGER') } catch {}
   try { await db.execute('ALTER TABLE entries ADD COLUMN current_episode INTEGER') } catch {}
 
+  // Add backlog priority column to existing DBs
+  try { await db.execute('ALTER TABLE entries ADD COLUMN priority INTEGER') } catch {}
+
   // Migrate audiobook / manga → books
   await db.execute(`UPDATE entries SET hobby_category = 'books', book_subtype = 'audiobook' WHERE hobby_category = 'audiobooks'`)
   await db.execute(`UPDATE entries SET hobby_category = 'books', book_subtype = 'manga'     WHERE hobby_category = 'manga'`)
+
+  // Add tracked-categories column to existing DBs (null = first-run selector not yet completed)
+  try { await db.execute('ALTER TABLE profile ADD COLUMN enabled_hobbies TEXT') } catch {}
 
   // Ensure default profile row
   await db.execute(`INSERT OR IGNORE INTO profile (id, username) VALUES (1, 'You')`)
@@ -93,8 +100,18 @@ function notifyEntriesChanged() {
 
 export async function getProfile(): Promise<Profile> {
   const db = await getDb()
-  const rows = await db.select<Profile[]>('SELECT * FROM profile WHERE id = 1')
-  return rows[0] ?? { id: '1', username: 'You', avatar_url: null, bio: null, created_at: new Date().toISOString() }
+  type RawProfile = Omit<Profile, 'enabled_hobbies'> & { enabled_hobbies: string | null }
+  const rows = await db.select<RawProfile[]>('SELECT * FROM profile WHERE id = 1')
+  const raw = rows[0]
+  if (!raw) return { id: '1', username: 'You', avatar_url: null, bio: null, enabled_hobbies: null, created_at: new Date().toISOString() }
+  let enabled: HobbyCategory[] | null = null
+  try { enabled = raw.enabled_hobbies ? JSON.parse(raw.enabled_hobbies) : null } catch { enabled = null }
+  return { ...raw, enabled_hobbies: enabled }
+}
+
+export async function setEnabledHobbies(hobbies: HobbyCategory[]): Promise<void> {
+  const db = await getDb()
+  await db.execute('UPDATE profile SET enabled_hobbies = $1 WHERE id = 1', [JSON.stringify(hobbies)])
 }
 
 export async function updateProfile(data: { username?: string; bio?: string | null; avatar_url?: string | null }) {
@@ -154,12 +171,17 @@ export async function insertEntry(
   return (await getEntryById(id))!
 }
 
+const UPDATABLE_FIELDS = [
+  'status', 'rating', 'notes', 'progress_current', 'progress_total',
+  'cover_url', 'book_subtype', 'current_season', 'current_episode',
+  'priority', 'date_started', 'date_completed',
+] as const
+
 export async function updateEntry(
   id: string,
   data: Partial<Entry> & { metadata_patch?: Record<string, unknown> }
 ): Promise<Entry> {
   const db = await getDb()
-  const now = new Date().toISOString()
 
   if (data.metadata_patch) {
     const existing = await getEntryById(id)
@@ -167,38 +189,32 @@ export async function updateEntry(
     await db.execute('UPDATE entries SET metadata = $1 WHERE id = $2', [JSON.stringify(merged), id])
   }
 
-  await db.execute(
-    `UPDATE entries SET
-      status           = COALESCE($1,  status),
-      rating           = $2,
-      notes            = $3,
-      progress_current = COALESCE($4,  progress_current),
-      progress_total   = COALESCE($5,  progress_total),
-      cover_url        = COALESCE($6,  cover_url),
-      book_subtype     = COALESCE($7,  book_subtype),
-      current_season   = COALESCE($8,  current_season),
-      current_episode  = COALESCE($9,  current_episode),
-      date_started     = $10,
-      date_completed   = $11,
-      updated_at       = $12
-    WHERE id = $13`,
-    [
-      data.status        ?? null,
-      data.rating        ?? null,
-      data.notes         ?? null,
-      data.progress_current ?? null,
-      data.progress_total   ?? null,
-      data.cover_url        ?? null,
-      data.book_subtype     ?? null,
-      data.current_season   ?? null,
-      data.current_episode  ?? null,
-      data.date_started     ?? null,
-      data.date_completed   ?? null,
-      now, id,
-    ]
-  )
+  // Truly partial update: only fields present in `data` are written,
+  // so partial payloads never wipe untouched columns
+  const sets: string[] = []
+  const values: unknown[] = []
+  for (const key of UPDATABLE_FIELDS) {
+    if (key in data && (data as Record<string, unknown>)[key] !== undefined) {
+      values.push((data as Record<string, unknown>)[key])
+      sets.push(`${key} = $${values.length}`)
+    }
+  }
+  values.push(new Date().toISOString())
+  sets.push(`updated_at = $${values.length}`)
+  values.push(id)
+  await db.execute(`UPDATE entries SET ${sets.join(', ')} WHERE id = $${values.length}`, values)
+
   notifyEntriesChanged()
   return (await getEntryById(id))!
+}
+
+// Persist a backlog ranking: positions are 1-based in the given order
+export async function setEntryPriorities(orderedIds: string[]): Promise<void> {
+  const db = await getDb()
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db.execute('UPDATE entries SET priority = $1 WHERE id = $2', [i + 1, orderedIds[i]])
+  }
+  notifyEntriesChanged()
 }
 
 export async function deleteEntry(id: string): Promise<void> {
@@ -300,6 +316,7 @@ interface RawEntry {
   book_subtype: BookSubtype | null
   current_season: number | null
   current_episode: number | null
+  priority: number | null
   date_started: string | null
   date_completed: string | null
   created_at: string

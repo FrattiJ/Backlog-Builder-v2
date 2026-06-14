@@ -7,6 +7,7 @@ export interface Profile {
   username: string
   avatar_url: string | null
   bio: string | null
+  enabled_hobbies: HobbyCategory[] | null
   created_at: string
 }
 
@@ -26,6 +27,7 @@ export interface Entry {
   book_subtype: BookSubtype | null
   current_season: number | null
   current_episode: number | null
+  priority: number | null
   date_started: string | null
   date_completed: string | null
   created_at: string

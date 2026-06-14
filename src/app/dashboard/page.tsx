@@ -8,6 +8,7 @@ import MechCard from '@/components/MechCard'
 import { getAllEntries, ENTRIES_CHANGED_EVENT } from '@/lib/db'
 import { HOBBIES, HOBBY_MAP, STATUS_LABELS } from '@/lib/hobbies'
 import type { Entry, EntryStatus } from '@/types/database'
+import { useHobbies } from '@/components/HobbyContext'
 import { ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react'
 
 const HOBBY_PATHS: Record<string, string> = {
@@ -16,7 +17,7 @@ const HOBBY_PATHS: Record<string, string> = {
 }
 
 type StatFilter = 'all' | 'in_progress' | 'completed' | 'backlog' | null
-type SortField  = 'title' | 'rating' | 'updated' | 'hobby'
+type SortField  = 'title' | 'rating' | 'updated' | 'hobby' | 'priority'
 type SortDir    = 'asc' | 'desc'
 
 function StatFilterCard({
@@ -39,6 +40,7 @@ function StatFilterCard({
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { enabledHobbies } = useHobbies()
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState<StatFilter>(null)
@@ -102,6 +104,7 @@ export default function DashboardPage() {
       if (sortField === 'rating')  cmp = (a.rating ?? 0) - (b.rating ?? 0)
       if (sortField === 'updated') cmp = a.updated_at.localeCompare(b.updated_at)
       if (sortField === 'hobby')   cmp = a.hobby_category.localeCompare(b.hobby_category)
+      if (sortField === 'priority') cmp = (a.priority ?? 1e9) - (b.priority ?? 1e9)
       return sortDir === 'asc' ? cmp : -cmp
     })
   }, [activeFilter, entries, sortField, sortDir, hobbyFilter])
@@ -205,7 +208,7 @@ export default function DashboardPage() {
                   }}
                 >
                   <option value="all">ALL CATEGORIES</option>
-                  {HOBBIES.map((h) => (
+                  {enabledHobbies.map((h) => (
                     <option key={h.id} value={h.id}>{h.pluralLabel.toUpperCase()}</option>
                   ))}
                 </select>
@@ -215,6 +218,7 @@ export default function DashboardPage() {
                 <SortBtn field="title"   label="TITLE"  />
                 <SortBtn field="rating"  label="RATING" />
                 <SortBtn field="hobby"   label="TYPE"   />
+                {activeFilter === 'backlog' && <SortBtn field="priority" label="PRIORITY" />}
               </div>
             </div>
 
@@ -239,8 +243,8 @@ export default function DashboardPage() {
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', marginBottom: 12 }}>
           CATEGORY INDEX
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
-          {HOBBIES.map((h, i) => {
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${enabledHobbies.length}, 1fr)`, gap: 8 }}>
+          {enabledHobbies.map((h, i) => {
             const count = entries.filter((e) => e.hobby_category === h.id).length
             return (
               <MechCard key={h.id} accent={h.accent} index={i + 4} hoverable onClick={() => router.push(HOBBY_PATHS[h.id])}>
