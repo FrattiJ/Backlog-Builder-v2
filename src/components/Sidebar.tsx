@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Gamepad2, Film, Tv,
   BookOpen, Bot, Trophy, Palette, BarChart2, Search,
-  Settings, SlidersHorizontal, Plus, Clock,
+  Settings, SlidersHorizontal, Plus, Clock, Download,
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import { HOBBIES } from '@/lib/hobbies'
@@ -240,6 +240,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
         })}
 
         <SectionLabel>TOOLS</SectionLabel>
+        <NavItem href="/import"            icon={Download}          label="Import"   pathname={pathname} />
         <NavItem href="/settings"          icon={Settings}          label="Settings" pathname={pathname} />
         <NavItem href="/settings/api-keys" icon={SlidersHorizontal} label="API Keys" pathname={pathname} />
       </nav>

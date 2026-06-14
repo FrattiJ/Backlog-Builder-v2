@@ -217,6 +217,38 @@ export async function setEntryPriorities(orderedIds: string[]): Promise<void> {
   notifyEntriesChanged()
 }
 
+export async function bulkInsertEntries(
+  dataList: Array<Omit<Entry, 'id' | 'created_at' | 'updated_at'>>,
+  onProgress?: (inserted: number) => void
+): Promise<number> {
+  const db = await getDb()
+  const now = new Date().toISOString()
+  let count = 0
+  for (const data of dataList) {
+    const id = uuid()
+    await db.execute(
+      `INSERT INTO entries (id, hobby_category, title, status, rating, notes, progress_current,
+        progress_total, cover_url, external_id, external_source, metadata, book_subtype,
+        date_started, date_completed, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [
+        id, data.hobby_category, data.title, data.status,
+        data.rating ?? null, data.notes ?? null,
+        data.progress_current ?? 0, data.progress_total ?? null,
+        data.cover_url ?? null, data.external_id ?? null, data.external_source ?? null,
+        JSON.stringify(data.metadata ?? {}),
+        data.book_subtype ?? null,
+        data.date_started ?? null, data.date_completed ?? null,
+        now, now,
+      ]
+    )
+    count++
+    onProgress?.(count)
+  }
+  notifyEntriesChanged()
+  return count
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const db = await getDb()
   await db.execute('DELETE FROM entries WHERE id = $1', [id])
