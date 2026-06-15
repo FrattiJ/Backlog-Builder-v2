@@ -8,11 +8,14 @@ import { getTheme, applyTheme } from '@/lib/theme'
 import { HOBBIES } from '@/lib/hobbies'
 import { HobbyContext } from './HobbyContext'
 import OnboardingSelector from './OnboardingSelector'
+import OnboardingInstructions from './OnboardingInstructions'
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [ready, setReady] = useState(false)
   const [enabledIds, setEnabledIds] = useState<HobbyCategory[]>(HOBBIES.map((h) => h.id))
+  const [showInstructions, setShowInstructions] = useState(false)
+  const [onboardedHobbies, setOnboardedHobbies] = useState<HobbyCategory[]>([])
 
   const loadProfile = useCallback(() => {
     getProfile()
@@ -82,7 +85,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   if (profile?.enabled_hobbies === null) {
     return (
       <HobbyContext.Provider value={{ enabledIds, enabledHobbies, setEnabledIds: handleSetEnabledIds }}>
-        <OnboardingSelector onComplete={handleSetEnabledIds} />
+        <OnboardingSelector onComplete={async (ids) => {
+          await handleSetEnabledIds(ids)
+          setOnboardedHobbies(ids)
+          setShowInstructions(true)
+        }} />
+      </HobbyContext.Provider>
+    )
+  }
+
+  if (showInstructions) {
+    return (
+      <HobbyContext.Provider value={{ enabledIds, enabledHobbies, setEnabledIds: handleSetEnabledIds }}>
+        <OnboardingInstructions
+          selectedHobbies={onboardedHobbies}
+          onDone={() => setShowInstructions(false)}
+        />
       </HobbyContext.Provider>
     )
   }
