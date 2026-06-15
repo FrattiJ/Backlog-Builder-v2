@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Save, User, Upload, X, Moon, Sun, Check } from 'lucide-react'
-import { getProfile, updateProfile } from '@/lib/db'
+import { Save, User, Upload, X, Moon, Sun, Check, Trash2 } from 'lucide-react'
+import { getProfile, updateProfile, clearAllData } from '@/lib/db'
 import { CLIP } from '@/components/MechCard'
 import { getTheme, setTheme, type Theme } from '@/lib/theme'
 import type { Profile, HobbyCategory } from '@/types/database'
@@ -27,8 +27,19 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [theme, setThemeState] = useState<Theme>('dark')
   const [cropFile, setCropFile] = useState<File | null>(null)
+  const [clearConfirm, setClearConfirm] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const { enabledIds, setEnabledIds } = useHobbies()
+
+  async function handleClearData() {
+    if (!clearConfirm) { setClearConfirm(true); return }
+    await clearAllData()
+    setClearConfirm(false)
+    setMessage({ type: 'success', text: 'All data cleared. API keys preserved.' })
+    setUsername('You')
+    setBio('')
+    setAvatarUrl('')
+  }
 
   useEffect(() => {
     setThemeState(getTheme())
@@ -353,6 +364,30 @@ export default function SettingsPage() {
           onCancel={() => setCropFile(null)}
         />
       )}
+
+      {/* Danger Zone */}
+      <div style={{ border: '1px solid #ef444433', borderLeft: '3px solid #ef4444', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
+        <div>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: '#ef4444', letterSpacing: '0.1em', margin: 0, marginBottom: 2 }}>CLEAR ALL DATA</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-mute)', letterSpacing: '0.04em', margin: 0 }}>Deletes all entries, sessions, and profile. API keys are preserved.</p>
+        </div>
+        <button
+          onClick={handleClearData}
+          onBlur={() => setClearConfirm(false)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+            padding: '8px 14px',
+            background: clearConfirm ? '#ef444422' : 'transparent',
+            border: `1px solid ${clearConfirm ? '#ef4444' : '#ef444466'}`,
+            color: clearConfirm ? '#ef4444' : '#ef444499',
+            fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em',
+            cursor: 'pointer', transition: 'all 0.15s ease',
+          }}
+        >
+          <Trash2 size={12} />
+          {clearConfirm ? 'CLICK AGAIN TO CONFIRM' : 'CLEAR DATA'}
+        </button>
+      </div>
 
       {/* Data Info Panel */}
       <div style={{ padding: '1px', clipPath: CLIP, background: 'color-mix(in srgb, var(--text-dim) 33%, transparent)' }}>

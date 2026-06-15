@@ -144,7 +144,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
             <rect width="400" height="400" fill="#06070d"/>
             <polygon points="52,0 400,0 400,348 348,400 0,400 0,52" fill="#0d1117"/>
             <polygon points="0,0 52,0 0,52" fill="#7c3aed"/>
-            <polygon points="52,0 400,0 400,348 348,400 0,400 0,52" fill="none" stroke="#7c3aed" stroke-width="8"/>
+            <polygon points="52,0 400,0 400,348 348,400 0,400 0,52" fill="none" stroke="#7c3aed" strokeWidth="8"/>
             <rect x="54"  y="72"  width="80" height="272" fill="#e2e8f0"/>
             <rect x="54"  y="200" width="218" height="38" fill="#e2e8f0"/>
             <rect x="148" y="302" width="62"  height="42"  fill="#7c3aed"/>

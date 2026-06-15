@@ -8,7 +8,7 @@ import { getEntryById, updateEntry, deleteEntry, getSessionsByEntry, insertSessi
 import PhotoGallery from '@/components/PhotoGallery'
 import { HOBBY_MAP, STATUS_LABELS, STATUS_COLORS, BOOK_SUBTYPE_MAP } from '@/lib/hobbies'
 import { CLIP } from '@/components/MechCard'
-import { openHLTB } from '@/lib/hltb'
+import { openHLTB, searchHLTB } from '@/lib/hltb'
 import { fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, fetchOpenLibraryDetails, fetchJikanDetails, calculateTVProgressFromSeason } from '@/lib/apiKeys'
 import type { Entry, Session, EntryStatus } from '@/types/database'
 
@@ -247,11 +247,19 @@ export default function EntryDetailClient({ id }: { id: string }) {
 
     try {
       if (entry.hobby_category === 'games') {
-        const details = await fetchRAWGGameDetails(entry.external_id)
+        const rawgId = (entry.metadata?.rawg_id as string) || entry.external_id
+        const [details, hltbData] = await Promise.all([
+          fetchRAWGGameDetails(rawgId),
+          searchHLTB(entry.title),
+        ])
         if (details.developers) metadata.developers = details.developers
         if (details.publishers) metadata.publishers = details.publishers
         if (details.platforms) metadata.platforms = details.platforms
         if (details.rating) metadata.rating = details.rating
+        if (hltbData?.mainPlus != null) {
+          metadata.time_to_beat = hltbData.mainPlus
+          setTimeToBeat(String(hltbData.mainPlus))
+        }
       } else if (entry.hobby_category === 'movies') {
         const details = await fetchTMDBMovieDetails(entry.external_id)
         if (details.director) metadata.director = details.director

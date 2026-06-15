@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Save, ExternalLink, Key } from 'lucide-react'
+import { open } from '@tauri-apps/plugin-shell'
 import { getApiKeys, setApiKey } from '@/lib/apiKeys'
 
 interface Keys {
@@ -47,11 +48,11 @@ export default function ApiKeysPage() {
               <h2 className="font-semibold text-white">RAWG.io — Video Games</h2>
               <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>Required for game search. Free account with instant API key.</p>
             </div>
-            <a href="https://rawg.io/api" target="_blank" rel="noreferrer"
+            <button onClick={() => open('https://rawg.io/apidocs')}
               className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-colors hover:bg-white/10"
-              style={{ color: '#10b981' }}>
+              style={{ color: '#10b981', background: 'none', border: 'none', cursor: 'pointer' }}>
               Get key <ExternalLink size={11} />
-            </a>
+            </button>
           </div>
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: '#6b7280' }}>API Key</label>
@@ -69,11 +70,11 @@ export default function ApiKeysPage() {
               <h2 className="font-semibold text-white">TMDB — Movies & TV</h2>
               <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>Required for movie and TV search. Free account needed.</p>
             </div>
-            <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer"
+            <button onClick={() => open('https://www.themoviedb.org/settings/api')}
               className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg hover:bg-white/10"
-              style={{ color: '#dc2626' }}>
+              style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
               Get key <ExternalLink size={11} />
-            </a>
+            </button>
           </div>
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: '#6b7280' }}>API Key (v3)</label>
@@ -88,7 +89,7 @@ export default function ApiKeysPage() {
         <div className="rounded-2xl p-5" style={{ ...card, background: 'rgba(5,150,105,0.08)', borderColor: 'rgba(5,150,105,0.2)' }}>
           <h3 className="font-medium text-sm mb-1" style={{ color: '#34d399' }}>✓ No key required</h3>
           <p className="text-xs" style={{ color: '#6b7280' }}>
-            <strong style={{ color: 'var(--text-mid)' }}>OpenLibrary</strong> (Books/Audiobooks) and <strong style={{ color: 'var(--text-mid)' }}>Jikan/MyAnimeList</strong> (Manga) work immediately with no signup needed.
+            <strong style={{ color: 'var(--text-mid)' }}>HowLongToBeat</strong> (time-to-beat), <strong style={{ color: 'var(--text-mid)' }}>OpenLibrary</strong> (Books/Audiobooks), and <strong style={{ color: 'var(--text-mid)' }}>Jikan/MyAnimeList</strong> (Manga) work immediately with no signup needed.
           </p>
         </div>
 

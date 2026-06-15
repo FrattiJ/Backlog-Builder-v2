@@ -15,6 +15,14 @@
     "store:allow-load",
     "store:allow-delete",
     "store:allow-keys",
-    "shell:allow-open"
+    "shell:allow-open",
+    "http:default",
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [
+        { "url": "https://api.steampowered.com/**" },
+        { "url": "https://howlongtobeat.com/**" }
+      ]
+    }
   ]
 }

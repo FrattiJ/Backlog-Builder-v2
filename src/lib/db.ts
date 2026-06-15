@@ -255,6 +255,16 @@ export async function bulkInsertEntries(
   return count
 }
 
+export async function clearAllData(): Promise<void> {
+  const db = await getDb()
+  await db.execute('DELETE FROM photos')
+  await db.execute('DELETE FROM sessions')
+  await db.execute('DELETE FROM entries')
+  await db.execute(`UPDATE profile SET username = 'You', avatar_url = NULL, bio = NULL, enabled_hobbies = NULL WHERE id = 1`)
+  notifyEntriesChanged()
+  notifyProfileChanged()
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const db = await getDb()
   await db.execute('DELETE FROM entries WHERE id = $1', [id])

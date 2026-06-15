@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, Search, Plus } from 'lucide-react'
 import { insertEntry } from '@/lib/db'
 import { searchIGDB, searchTMDB, fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, searchOpenLibrary, searchJikan } from '@/lib/apiKeys'
+import { searchHLTB, type HLTBResult } from '@/lib/hltb'
 import { HOBBY_MAP, STATUS_LABELS, BOOK_SUBTYPES, BOOK_SUBTYPE_MAP } from '@/lib/hobbies'
 import { CLIP } from './MechCard'
 import type { HobbyCategory, EntryStatus, BookSubtype } from '@/types/database'
@@ -46,6 +47,8 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
   const [coverUrl, setCoverUrl] = useState('')
   const [timeToBeat, setTimeToBeat] = useState('')
   const [igdbTTB, setIgdbTTB] = useState<{ main: number | null; rushed: number | null; complete: number | null } | null>(null)
+  const [hltbTTB, setHltbTTB] = useState<HLTBResult | null>(null)
+  const [fetchingHltb, setFetchingHltb] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -77,6 +80,9 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
     setVolumeTotal('')
     setCoverUrl('')
     setTitle('')
+    setHltbTTB(null)
+    setFetchingHltb(false)
+    setIgdbTTB(null)
   }
 
   async function handleSearch() {
@@ -155,18 +161,29 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
 
     // Games: time-to-beat and additional metadata
     if (hobbyId === 'games' && r.id) {
-      const ttbData = r
-      const main     = ttbData.time_to_beat_main     != null ? Number(ttbData.time_to_beat_main)     : null
-      const rushed   = ttbData.time_to_beat_rushed   != null ? Number(ttbData.time_to_beat_rushed)   : null
-      const complete = ttbData.time_to_beat_complete != null ? Number(ttbData.time_to_beat_complete) : null
+      const main     = r.time_to_beat_main     != null ? Number(r.time_to_beat_main)     : null
+      const rushed   = r.time_to_beat_rushed   != null ? Number(r.time_to_beat_rushed)   : null
+      const complete = r.time_to_beat_complete != null ? Number(r.time_to_beat_complete) : null
       const hasTTB   = main !== null || rushed !== null || complete !== null
       setIgdbTTB(hasTTB ? { main, rushed, complete } : null)
+      setHltbTTB(null)
+      setFetchingHltb(true)
       if (main !== null) setTimeToBeat(String(main))
 
-      // Fetch developers and publishers
+      // Fetch RAWG dev/pub details (await as before)
       const details = await fetchRAWGGameDetails(r.id)
       if (details.developers) r.developers = details.developers
       if (details.publishers) r.publishers = details.publishers
+
+      // Fetch HLTB in background — replaces pre-filled TTB with accurate data
+      searchHLTB(r.title).then(hltbData => {
+        setFetchingHltb(false)
+        if (hltbData) {
+          setHltbTTB(hltbData)
+          if (hltbData.mainPlus !== null) setTimeToBeat(String(hltbData.mainPlus))
+          else if (hltbData.main !== null) setTimeToBeat(String(hltbData.main))
+        }
+      }).catch(() => setFetchingHltb(false))
     }
 
     setResults([])
@@ -419,27 +436,56 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
           {hobbyId === 'games' && (
             <div>
               <Label>TIME TO BEAT (HOURS)</Label>
-              {igdbTTB && (
+              {hltbTTB ? (
+                // HLTB data loaded — show accurate HLTB buttons
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {hltbTTB.main !== null && (
+                    <MechBtn active={timeToBeat === String(hltbTTB.main)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(hltbTTB.main!))}>
+                      MAIN — {hltbTTB.main}H
+                    </MechBtn>
+                  )}
+                  {hltbTTB.mainPlus !== null && (
+                    <MechBtn active={timeToBeat === String(hltbTTB.mainPlus)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(hltbTTB.mainPlus!))}>
+                      MAIN+EXTRAS — {hltbTTB.mainPlus}H
+                    </MechBtn>
+                  )}
+                  {hltbTTB.complete !== null && (
+                    <MechBtn active={timeToBeat === String(hltbTTB.complete)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(hltbTTB.complete!))}>
+                      100% — {hltbTTB.complete}H
+                    </MechBtn>
+                  )}
+                </div>
+              ) : igdbTTB ? (
+                // RAWG fallback while HLTB loads (or if HLTB found nothing)
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                   {igdbTTB.rushed !== null && (
-                    <MechBtn active={timeToBeat === String(igdbTTB.rushed)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(igdbTTB.rushed))}>
+                    <MechBtn active={timeToBeat === String(igdbTTB.rushed)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(igdbTTB.rushed!))}>
                       RUSHED — {igdbTTB.rushed}H
                     </MechBtn>
                   )}
                   {igdbTTB.main !== null && (
-                    <MechBtn active={timeToBeat === String(igdbTTB.main)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(igdbTTB.main))}>
+                    <MechBtn active={timeToBeat === String(igdbTTB.main)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(igdbTTB.main!))}>
                       AVG PLAYTIME — {igdbTTB.main}H
                     </MechBtn>
                   )}
                   {igdbTTB.complete !== null && (
-                    <MechBtn active={timeToBeat === String(igdbTTB.complete)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(igdbTTB.complete))}>
+                    <MechBtn active={timeToBeat === String(igdbTTB.complete)} accent={effectiveAccent} onClick={() => setTimeToBeat(String(igdbTTB.complete!))}>
                       100% — {igdbTTB.complete}H
                     </MechBtn>
                   )}
+                  {fetchingHltb && (
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
+                      FETCHING HLTB…
+                    </span>
+                  )}
                 </div>
-              )}
+              ) : fetchingHltb ? (
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 8 }}>
+                  FETCHING HLTB…
+                </p>
+              ) : null}
               <input type="number" min={0} step={0.5} value={timeToBeat} onChange={(e) => setTimeToBeat(e.target.value)}
-                placeholder={igdbTTB ? 'OR ENTER MANUALLY…' : 'e.g. 25'} style={inp} />
+                placeholder={hltbTTB || igdbTTB ? 'OR ENTER MANUALLY…' : 'e.g. 25'} style={inp} />
             </div>
           )}
 

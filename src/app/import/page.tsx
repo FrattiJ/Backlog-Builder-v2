@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Upload } from 'lucide-react'
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { getAllEntries, bulkInsertEntries } from '@/lib/db'
+import { getApiKeys, searchIGDB } from '@/lib/apiKeys'
+import { searchHLTB } from '@/lib/hltb'
 import type { HobbyCategory, EntryStatus, BookSubtype } from '@/types/database'
 
 type ImportTab = 'mal' | 'letterboxd' | 'goodreads' | 'steam'
@@ -199,28 +202,42 @@ function parseGoodreads(text: string): PreviewEntry[] {
 // ── Steam fetcher ────────────────────────────────────────────────────────────
 
 async function fetchSteam(input: string, key: string): Promise<PreviewEntry[]> {
+  if (!key.trim()) throw new Error('API key is required')
   let steamId = input.trim()
   const profileMatch = steamId.match(/\/profiles\/(\d{17})/)
   const vanityMatch = steamId.match(/\/id\/([^/\s]+)/)
   if (profileMatch) {
     steamId = profileMatch[1]
   } else if (vanityMatch) {
-    const res = await fetch(
-      `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${key}&vanityurl=${vanityMatch[1]}`
-    )
+    let res: Response
+    try {
+      res = await tauriFetch(
+        `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${key}&vanityurl=${vanityMatch[1]}`
+      )
+    } catch (e) {
+      throw new Error(`Fetch error (vanity): ${e instanceof Error ? e.message : String(e)}`)
+    }
+    if (res.status === 403) throw new Error('Invalid API key — double-check the key and wait a few minutes if it was just registered')
+    if (!res.ok) throw new Error(`Steam API returned ${res.status} when resolving profile URL`)
     const data = await res.json()
-    if (data.response?.success !== 1) throw new Error('Could not resolve Steam vanity URL — check the profile URL and API key')
+    if (data.response?.success !== 1) throw new Error('Could not find that Steam profile — check the URL is correct')
     steamId = data.response.steamid
   }
-  if (!/^\d{17}$/.test(steamId)) throw new Error('Enter a 17-digit Steam ID64 or a full Steam profile URL')
+  if (!/^\d{17}$/.test(steamId)) throw new Error('Enter your full Steam profile URL (e.g. steamcommunity.com/id/yourname) or your 17-digit Steam ID64')
 
-  const res = await fetch(
-    `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${key}&steamid=${steamId}&include_appinfo=true&format=json`
-  )
+  let res: Response
+  try {
+    res = await tauriFetch(
+      `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${key}&steamid=${steamId}&include_appinfo=true&format=json`
+    )
+  } catch (e) {
+    throw new Error(`Fetch error (games): ${e instanceof Error ? e.message : String(e)}`)
+  }
+  if (res.status === 403) throw new Error('Invalid API key — double-check the key and wait a few minutes if it was just registered')
   if (!res.ok) throw new Error(`Steam API returned ${res.status} — check your API key`)
   const data = await res.json()
   const games: Array<{ appid: number; name: string; playtime_forever: number }> = data.response?.games
-  if (!games?.length) throw new Error('No games found — set your Steam profile games list to Public')
+  if (!games?.length) throw new Error('No games returned — make sure Game Details is set to Public in your Steam Privacy Settings (Profile → Edit Profile → Privacy Settings)')
 
   return games.map((g) => ({
     title: g.name,
@@ -228,11 +245,12 @@ async function fetchSteam(input: string, key: string): Promise<PreviewEntry[]> {
     status: (g.playtime_forever > 0 ? 'in_progress' : 'backlog') as EntryStatus,
     rating: null,
     notes: null,
-    progress_current: 0,
+    progress_current: Math.round(g.playtime_forever / 60 * 10) / 10,
     progress_total: null,
     cover_url: null,
     external_id: String(g.appid),
     external_source: 'steam',
+    cover_url: `https://cdn.akamai.steamstatic.com/steam/apps/${g.appid}/library_600x900.jpg`,
     metadata: {
       steam_appid: g.appid,
       playtime_hours: Math.round(g.playtime_forever / 60 * 10) / 10,
@@ -270,12 +288,53 @@ export default function ImportPage() {
   const [steamInput, setSteamInput] = useState('')
   const [steamKey, setSteamKey] = useState('')
   const [fetching, setFetching] = useState(false)
+  const [enrichWithRawg, setEnrichWithRawg] = useState(true)
+  const [enrichStatus, setEnrichStatus] = useState<{ current: number; total: number } | null>(null)
+  const [hasRawgKey, setHasRawgKey] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setSteamInput(localStorage.getItem('import_steam_profile') ?? '')
     setSteamKey(localStorage.getItem('import_steam_key') ?? '')
+    getApiKeys().then((k) => setHasRawgKey(!!k.rawgApiKey))
   }, [])
+
+  async function enrichGamesWithRawg(games: PreviewEntry[]): Promise<PreviewEntry[]> {
+    const { rawgApiKey } = await getApiKeys()
+    if (!rawgApiKey) return games
+    const enriched: PreviewEntry[] = []
+    for (let i = 0; i < games.length; i++) {
+      setEnrichStatus({ current: i + 1, total: games.length })
+      try {
+        // Run RAWG and HLTB in parallel per game
+        const [results, hltbData] = await Promise.all([
+          searchIGDB(games[i].title),
+          searchHLTB(games[i].title),
+        ])
+        const r = results[0] ?? null
+        enriched.push({
+          ...games[i],
+          cover_url: r?.cover_url ?? games[i].cover_url,
+          metadata: {
+            ...games[i].metadata,
+            ...(r ? {
+              rawg_id: r.id,
+              genres: r.genres || undefined,
+              release_year: r.release_year || undefined,
+              platforms: r.platforms || undefined,
+              rating: r.rating || undefined,
+            } : {}),
+            // HLTB main+extras takes priority over RAWG's noisy community playtime
+            time_to_beat: hltbData?.mainPlus ?? (r?.time_to_beat_main || undefined),
+          },
+        })
+      } catch {
+        enriched.push(games[i])
+      }
+    }
+    setEnrichStatus(null)
+    return enriched
+  }
 
   function reset() {
     setPageState('idle')
@@ -283,6 +342,7 @@ export default function ImportPage() {
     setError(null)
     setResult(null)
     setProgress(0)
+    setEnrichStatus(null)
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -313,7 +373,10 @@ export default function ImportPage() {
     try {
       localStorage.setItem('import_steam_profile', steamInput)
       localStorage.setItem('import_steam_key', steamKey)
-      const parsed = await fetchSteam(steamInput, steamKey)
+      let parsed = await fetchSteam(steamInput, steamKey)
+      if (enrichWithRawg && hasRawgKey) {
+        parsed = await enrichGamesWithRawg(parsed)
+      }
       setPreview(parsed)
       setPageState('parsed')
     } catch (e) {
@@ -428,11 +491,19 @@ export default function ImportPage() {
           background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
           borderTop: `2px solid ${activeAccent}`, padding: 20, marginBottom: 16,
         }}>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-mute)', letterSpacing: '0.06em', lineHeight: 1.7, marginBottom: 20 }}>
-            Your Steam profile must be set to <span style={{ color: 'var(--text-mid)' }}>Public</span>.
-            Get a free API key at <span style={{ color: activeAccent }}>store.steampowered.com/dev/apikey</span>.
-            Games with any playtime import as In Progress; unplayed games import as Backlog.
-          </p>
+          <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
+            {[
+              { n: '01', text: <>Go to <span style={{ color: activeAccent }}>steamcommunity.com/dev</span>, click <span style={{ color: 'var(--text-mid)' }}>"by filling out this form"</span>, enter <span style={{ color: 'var(--text-mid)' }}>localhost</span> as the domain name, agree to the terms, and click Register. Copy the key shown.</> },
+              { n: '02', text: <>In Steam, go to your <span style={{ color: 'var(--text-mid)' }}>Profile → Edit Profile → Privacy Settings</span>. Set <span style={{ color: 'var(--text-mid)' }}>Game Details</span> to <span style={{ color: 'var(--text-mid)' }}>Public</span>. (My Profile visibility also needs to be Public.)</> },
+              { n: '03', text: <>Paste your Steam profile URL below (e.g. <span style={{ color: 'var(--text-mid)' }}>steamcommunity.com/id/yourname</span>) and your API key, then click Fetch Library.</> },
+              { n: '04', text: <><span style={{ color: 'var(--text-mid)' }}>Note:</span> New API keys can take a few minutes to activate. If you get an error right after registering, wait 2–3 minutes and try again.</> },
+            ].map(({ n, text }) => (
+              <div key={n} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: activeAccent, letterSpacing: '0.1em', flexShrink: 0, marginTop: 2 }}>{n}</span>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-mute)', letterSpacing: '0.04em', lineHeight: 1.7, margin: 0 }}>{text}</p>
+              </div>
+            ))}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 14 }}>
             <div>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-mute)', letterSpacing: '0.14em', marginBottom: 6 }}>
@@ -474,22 +545,48 @@ export default function ImportPage() {
                 }}
               />
             </div>
-            <button
-              onClick={handleSteamFetch}
-              disabled={!steamInput.trim() || !steamKey.trim() || fetching}
-              style={{
-                padding: '10px 20px', alignSelf: 'flex-start' as const,
-                background: `${activeAccent}22`,
-                border: `1px solid ${activeAccent}`,
-                color: activeAccent,
-                fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.12em',
-                cursor: !steamInput.trim() || !steamKey.trim() || fetching ? 'not-allowed' : 'pointer',
-                opacity: !steamInput.trim() || !steamKey.trim() ? 0.5 : 1,
-                transition: 'all 0.12s ease',
-              }}
-            >
-              {fetching ? 'FETCHING…' : 'FETCH LIBRARY'}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10 }}>
+              {hasRawgKey && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={enrichWithRawg}
+                    onChange={(e) => setEnrichWithRawg(e.target.checked)}
+                    style={{ accentColor: activeAccent, width: 14, height: 14 }}
+                  />
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-mute)', letterSpacing: '0.1em' }}>
+                    ENRICH WITH RAWG + HLTB (cover art, genres, time to beat)
+                  </span>
+                </label>
+              )}
+              {enrichStatus ? (
+                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
+                  <div style={{ height: 3, background: 'var(--bg-base)', borderRadius: 2 }}>
+                    <div style={{ height: '100%', width: `${Math.round((enrichStatus.current / enrichStatus.total) * 100)}%`, background: activeAccent, transition: 'width 0.1s ease', borderRadius: 2 }} />
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: activeAccent, letterSpacing: '0.1em' }}>
+                    ENRICHING WITH RAWG… {enrichStatus.current} / {enrichStatus.total}
+                  </span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleSteamFetch}
+                  disabled={!steamInput.trim() || !steamKey.trim() || fetching}
+                  style={{
+                    padding: '10px 20px', alignSelf: 'flex-start' as const,
+                    background: `${activeAccent}22`,
+                    border: `1px solid ${activeAccent}`,
+                    color: activeAccent,
+                    fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.12em',
+                    cursor: !steamInput.trim() || !steamKey.trim() || fetching ? 'not-allowed' : 'pointer',
+                    opacity: !steamInput.trim() || !steamKey.trim() ? 0.5 : 1,
+                    transition: 'all 0.12s ease',
+                  }}
+                >
+                  {fetching ? 'FETCHING…' : 'FETCH LIBRARY'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
