@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Upload } from 'lucide-react'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { getAllEntries, bulkInsertEntries } from '@/lib/db'
-import { getApiKeys, searchIGDB } from '@/lib/apiKeys'
+import { getApiKeys, searchIGDB, jikanFetch, jikanCover } from '@/lib/apiKeys'
 import { searchHLTB } from '@/lib/hltb'
 import type { HobbyCategory, EntryStatus, BookSubtype } from '@/types/database'
 
@@ -247,7 +247,6 @@ async function fetchSteam(input: string, key: string): Promise<PreviewEntry[]> {
     notes: null,
     progress_current: Math.round(g.playtime_forever / 60 * 10) / 10,
     progress_total: null,
-    cover_url: null,
     external_id: String(g.appid),
     external_source: 'steam',
     cover_url: `https://cdn.akamai.steamstatic.com/steam/apps/${g.appid}/library_600x900.jpg`,
@@ -386,6 +385,34 @@ export default function ImportPage() {
     }
   }
 
+  // Fetch cover art (and missing totals) from Jikan for MAL entries.
+  // Jikan allows 60 req/min, so requests are spaced ~1.1s apart. Failures leave the entry as-is.
+  async function enrichMALWithJikan(entries: PreviewEntry[]): Promise<PreviewEntry[]> {
+    const enriched: PreviewEntry[] = []
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i]
+      setEnrichStatus({ current: i + 1, total: entries.length })
+      const malId = e.metadata?.mal_id
+      if (!malId) { enriched.push(e); continue }
+      try {
+        const type = e.hobby_category === 'tv' ? 'anime' : 'manga'
+        const data = await jikanFetch(`https://api.jikan.moe/v4/${type}/${malId}`)
+        const item = data.data as Record<string, unknown>
+        enriched.push({
+          ...e,
+          cover_url: jikanCover(item) ?? e.cover_url,
+          progress_total: e.progress_total
+            ?? ((type === 'anime' ? item.episodes : item.chapters) as number | null),
+        })
+      } catch {
+        enriched.push(e)
+      }
+      if (i < entries.length - 1) await new Promise((r) => setTimeout(r, 1100))
+    }
+    setEnrichStatus(null)
+    return enriched
+  }
+
   async function handleImport() {
     setPageState('importing')
     setProgress(0)
@@ -393,10 +420,12 @@ export default function ImportPage() {
     const existingKeys = new Set(
       existing.map((e) => `${e.hobby_category}::${e.title.toLowerCase()}`)
     )
-    const toInsert = preview.filter(
+    let toInsert = preview.filter(
       (e) => !existingKeys.has(`${e.hobby_category}::${e.title.toLowerCase()}`)
     )
     const skipped = preview.length - toInsert.length
+    // Enrich after dedupe so re-imports don't burn Jikan quota on skipped entries
+    if (tab === 'mal') toInsert = await enrichMALWithJikan(toInsert)
     const imported = await bulkInsertEntries(
       toInsert,
       (n) => setProgress(Math.round((n / toInsert.length) * 100))
@@ -662,13 +691,13 @@ export default function ImportPage() {
           borderTop: `2px solid ${activeAccent}`, padding: 20, marginBottom: 16,
         }}>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-mute)', letterSpacing: '0.2em', marginBottom: 14 }}>
-            IMPORTING…
+            {enrichStatus ? 'FETCHING ARTWORK FROM MYANIMELIST…' : 'IMPORTING…'}
           </p>
           <div style={{ height: 4, background: 'var(--bg-base)', marginBottom: 8 }}>
-            <div style={{ height: '100%', width: `${progress}%`, background: activeAccent, transition: 'width 0.08s ease' }} />
+            <div style={{ height: '100%', width: `${enrichStatus ? Math.round((enrichStatus.current / enrichStatus.total) * 100) : progress}%`, background: activeAccent, transition: 'width 0.08s ease' }} />
           </div>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: activeAccent, letterSpacing: '0.1em' }}>
-            {progress}%
+            {enrichStatus ? `${enrichStatus.current} / ${enrichStatus.total}` : `${progress}%`}
           </p>
         </div>
       )}

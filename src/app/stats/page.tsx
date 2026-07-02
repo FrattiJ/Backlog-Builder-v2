@@ -11,25 +11,7 @@ import { HOBBIES } from '@/lib/hobbies'
 import type { Entry } from '@/types/database'
 import { getAllEntries, ENTRIES_CHANGED_EVENT } from '@/lib/db'
 import { useHobbies } from '@/components/HobbyContext'
-
-function calcHours(items: Entry[]): number {
-  let total = 0
-  for (const e of items) {
-    if (e.hobby_category === 'games' && e.metadata?.time_to_beat) {
-      total += Number(e.metadata.time_to_beat) || 0
-    } else if (
-      (e.hobby_category === 'movies' ||
-        (e.hobby_category === 'books' && e.book_subtype === 'audiobook')) &&
-      e.progress_total
-    ) {
-      total += e.progress_total / 60
-    } else if (e.hobby_category === 'tv' && e.progress_total) {
-      const minPerEp = (e.metadata?.episode_runtime as number) || 22
-      total += (e.progress_total * minPerEp) / 60
-    }
-  }
-  return Math.round(total * 10) / 10
-}
+import { calcHours } from '@/lib/hours'
 
 export default function StatsPage() {
   const { enabledHobbies } = useHobbies()
@@ -62,8 +44,8 @@ export default function StatsPage() {
     ? ratedEntries.reduce((sum, e) => sum + (e.rating ?? 0), 0) / ratedEntries.length
     : null
 
-  const backlogHours  = calcHours(backlog)
-  const finishedHours = calcHours(completed)
+  const backlogHours  = calcHours(backlog, 'full')
+  const finishedHours = calcHours(completed, 'full')
 
   const categoryData = enabledHobbies.map((h) => ({
     name: h.pluralLabel,

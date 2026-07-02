@@ -68,9 +68,9 @@ export async function searchIGDB(query: string) {
   }
 }
 
-export async function fetchRAWGGameDetails(id: string): Promise<{ developers: string | null; publishers: string | null; platforms: string | null; rating: number | null }> {
+export async function fetchRAWGGameDetails(id: string): Promise<{ developers: string | null; publishers: string | null; platforms: string | null; rating: number | null; cover_url: string | null }> {
   const { rawgApiKey } = await getApiKeys()
-  if (!rawgApiKey) return { developers: null, publishers: null, platforms: null, rating: null }
+  if (!rawgApiKey) return { developers: null, publishers: null, platforms: null, rating: null, cover_url: null }
   try {
     const res = await fetch(`https://api.rawg.io/api/games/${id}?key=${rawgApiKey}`)
     const data = await res.json()
@@ -84,9 +84,9 @@ export async function fetchRAWGGameDetails(id: string): Promise<{ developers: st
       ? (data.platforms as Record<string, Record<string, string>>[]).map((p) => p.platform?.name).filter(Boolean).join(', ')
       : null
     const rating = (data.rating as number) ?? null
-    return { developers, publishers, platforms, rating }
+    return { developers, publishers, platforms, rating, cover_url: (data.background_image as string) || null }
   } catch {
-    return { developers: null, publishers: null, platforms: null, rating: null }
+    return { developers: null, publishers: null, platforms: null, rating: null, cover_url: null }
   }
 }
 
@@ -133,9 +133,9 @@ export async function fetchTMDBWatchProviders(id: string, type: 'movie' | 'tv'):
   }
 }
 
-export async function fetchTMDBMovieDetails(id: string): Promise<{ runtime: number | null; director: string | null; studios: string | null; rating: number | null; streaming: string | null }> {
+export async function fetchTMDBMovieDetails(id: string): Promise<{ runtime: number | null; director: string | null; studios: string | null; rating: number | null; streaming: string | null; cover_url: string | null }> {
   const { tmdbApiKey } = await getApiKeys()
-  if (!tmdbApiKey) return { runtime: null, director: null, studios: null, rating: null, streaming: null }
+  if (!tmdbApiKey) return { runtime: null, director: null, studios: null, rating: null, streaming: null, cover_url: null }
   try {
     const res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${tmdbApiKey}&append_to_response=credits,watch/providers`)
     const data = await res.json()
@@ -161,15 +161,16 @@ export async function fetchTMDBMovieDetails(id: string): Promise<{ runtime: numb
       studios,
       rating: (data.vote_average as number) ?? null,
       streaming,
+      cover_url: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
     }
   } catch {
-    return { runtime: null, director: null, studios: null, rating: null, streaming: null }
+    return { runtime: null, director: null, studios: null, rating: null, streaming: null, cover_url: null }
   }
 }
 
-export async function fetchTMDBTVDetails(id: string): Promise<{ episodes: number | null; seasons: number | null; episodeRuntime: number | null; creator: string | null; networks: string | null; rating: number | null; streaming: string | null }> {
+export async function fetchTMDBTVDetails(id: string): Promise<{ episodes: number | null; seasons: number | null; episodeRuntime: number | null; creator: string | null; networks: string | null; rating: number | null; streaming: string | null; cover_url: string | null }> {
   const { tmdbApiKey } = await getApiKeys()
-  if (!tmdbApiKey) return { episodes: null, seasons: null, episodeRuntime: null, creator: null, networks: null, rating: null, streaming: null }
+  if (!tmdbApiKey) return { episodes: null, seasons: null, episodeRuntime: null, creator: null, networks: null, rating: null, streaming: null, cover_url: null }
   try {
     const res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${tmdbApiKey}&append_to_response=watch/providers`)
     const data = await res.json()
@@ -199,9 +200,10 @@ export async function fetchTMDBTVDetails(id: string): Promise<{ episodes: number
       networks,
       rating: (data.vote_average as number) ?? null,
       streaming,
+      cover_url: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
     }
   } catch {
-    return { episodes: null, seasons: null, episodeRuntime: null, creator: null, networks: null, rating: null, streaming: null }
+    return { episodes: null, seasons: null, episodeRuntime: null, creator: null, networks: null, rating: null, streaming: null, cover_url: null }
   }
 }
 
@@ -246,50 +248,90 @@ export async function searchOpenLibrary(query: string) {
   }))
 }
 
-export async function fetchOpenLibraryDetails(id: string): Promise<{ author: string | null; publisher: string | null }> {
+export async function fetchOpenLibraryDetails(id: string): Promise<{ author: string | null; publisher: string | null; cover_url: string | null }> {
   try {
     const res = await fetch(`https://openlibrary.org${id}.json`)
     const data = await res.json()
     const author = data.authors?.[0]?.name ?? null
     const publisher = Array.isArray(data.publishers) ? data.publishers[0] : null
-    return { author, publisher }
+    const coverId = Array.isArray(data.covers) ? (data.covers as number[]).find((c) => c > 0) : null
+    return { author, publisher, cover_url: coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : null }
   } catch {
-    return { author: null, publisher: null }
+    return { author: null, publisher: null, cover_url: null }
   }
 }
 
-export async function searchJikan(query: string) {
-  const res = await fetch(
-    `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=15&sfw=true`
-  )
-  const data = await res.json()
-  return (data.data ?? []).map((m: Record<string, unknown>) => {
-    const images = m.images as Record<string, Record<string, string>>
-    return {
-      id: String(m.mal_id),
-      title: ((m.title_english ?? m.title) as string),
-      cover_url: images?.jpg?.large_image_url ?? images?.jpg?.image_url ?? null,
-      synopsis: (m.synopsis as string) ?? null,
-      chapters: m.chapters ?? null,
-      volumes: m.volumes ?? null,
-      status: m.status ?? null,
-      rating: (m.score as number) ?? null,
-      source: 'jikan',
-    }
-  })
+// Jikan rate limit: 3 req/sec, 60 req/min. Retries once on 429, throws on other errors
+// so callers surface the real failure instead of showing empty results.
+export async function jikanFetch(url: string): Promise<Record<string, unknown>> {
+  let res = await fetch(url)
+  if (res.status === 429) {
+    await new Promise((r) => setTimeout(r, 1200))
+    res = await fetch(url)
+  }
+  if (!res.ok) {
+    throw new Error(`MyAnimeList (Jikan) API error: HTTP ${res.status}${res.status === 429 ? ' — rate limited, wait a minute and retry' : ''}`)
+  }
+  return (await res.json()) as Record<string, unknown>
 }
 
-export async function fetchJikanDetails(id: string): Promise<{ author: string | null; rating: number | null; chapters: number | null }> {
+export function jikanCover(m: Record<string, unknown>): string | null {
+  const images = m.images as Record<string, Record<string, string>> | undefined
+  return images?.jpg?.large_image_url ?? images?.jpg?.image_url ?? null
+}
+
+export async function searchJikan(query: string) {
+  const data = await jikanFetch(
+    `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=15&sfw=true`
+  )
+  return ((data.data as Record<string, unknown>[]) ?? []).map((m) => ({
+    id: String(m.mal_id),
+    title: ((m.title_english ?? m.title) as string),
+    cover_url: jikanCover(m),
+    synopsis: (m.synopsis as string) ?? null,
+    chapters: m.chapters ?? null,
+    volumes: m.volumes ?? null,
+    status: m.status ?? null,
+    rating: (m.score as number) ?? null,
+    source: 'jikan',
+  }))
+}
+
+export async function fetchJikanDetails(id: string): Promise<{ author: string | null; rating: number | null; chapters: number | null; volumes: number | null; cover_url: string | null }> {
   try {
-    const res = await fetch(`https://api.jikan.moe/v4/manga/${id}`)
-    const data = await res.json()
+    const data = await jikanFetch(`https://api.jikan.moe/v4/manga/${id}`)
     const mangaData = data.data as Record<string, unknown>
     const authors = mangaData.authors as Record<string, unknown>[] | undefined
     const author = authors?.[0] ? (authors[0] as Record<string, string>).name : null
-    const rating = (mangaData.score as number) ?? null
-    const chapters = (mangaData.chapters as number) ?? null
-    return { author, rating, chapters }
+    return {
+      author,
+      rating: (mangaData.score as number) ?? null,
+      chapters: (mangaData.chapters as number) ?? null,
+      volumes: (mangaData.volumes as number) ?? null,
+      cover_url: jikanCover(mangaData),
+    }
   } catch {
-    return { author: null, rating: null, chapters: null }
+    return { author: null, rating: null, chapters: null, volumes: null, cover_url: null }
+  }
+}
+
+// For MAL-imported anime (stored as TV entries with a MAL id — TMDB ids don't apply)
+export async function fetchJikanAnimeDetails(id: string): Promise<{ episodes: number | null; rating: number | null; studios: string | null; episodeRuntime: number | null; cover_url: string | null }> {
+  try {
+    const data = await jikanFetch(`https://api.jikan.moe/v4/anime/${id}`)
+    const anime = data.data as Record<string, unknown>
+    const studioArr = anime.studios as Record<string, unknown>[] | undefined
+    const studios = studioArr?.length ? studioArr.map((s) => (s as Record<string, string>).name).slice(0, 2).join(', ') : null
+    // Jikan duration is a string like "24 min per ep"
+    const durationMatch = typeof anime.duration === 'string' ? anime.duration.match(/^(\d+)\s*min/) : null
+    return {
+      episodes: (anime.episodes as number) ?? null,
+      rating: (anime.score as number) ?? null,
+      studios,
+      episodeRuntime: durationMatch ? parseInt(durationMatch[1], 10) : null,
+      cover_url: jikanCover(anime),
+    }
+  } catch {
+    return { episodes: null, rating: null, studios: null, episodeRuntime: null, cover_url: null }
   }
 }

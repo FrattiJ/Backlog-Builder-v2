@@ -2,19 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Star, Plus, Trash2, ArrowLeft, Save, ExternalLink } from 'lucide-react'
+import { Star, Plus, Trash2, ArrowLeft, Save, ExternalLink, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import { getEntryById, updateEntry, deleteEntry, getSessionsByEntry, insertSession, deleteSession, getPhotosByEntry, type Photo } from '@/lib/db'
 import PhotoGallery from '@/components/PhotoGallery'
 import { HOBBY_MAP, STATUS_LABELS, STATUS_COLORS, BOOK_SUBTYPE_MAP } from '@/lib/hobbies'
 import { CLIP } from '@/components/MechCard'
 import { openHLTB, searchHLTB } from '@/lib/hltb'
-import { fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, fetchOpenLibraryDetails, fetchJikanDetails, calculateTVProgressFromSeason } from '@/lib/apiKeys'
+import { fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, fetchOpenLibraryDetails, fetchJikanDetails, fetchJikanAnimeDetails, calculateTVProgressFromSeason } from '@/lib/apiKeys'
 import type { Entry, Session, EntryStatus } from '@/types/database'
 
 const HOBBY_PATHS: Record<string, string> = {
   games: '/games', movies: '/movies', tv: '/tv', books: '/books',
-  gundams: '/gundams', sports: '/sports', art: '/art',
+  gundams: '/gundams', fitness: '/fitness', art: '/art',
 }
 
 export default function EntryDetailClient({ id }: { id: string }) {
@@ -33,6 +33,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
   const [timeToBeat, setTimeToBeat] = useState('')
   const [currentSeason, setCurrentSeason] = useState('')
   const [currentEpisode, setCurrentEpisode] = useState('')
+  const [editingCover, setEditingCover] = useState(false)
+  const [coverInput, setCoverInput] = useState('')
 
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0])
   const [sessionHours, setSessionHours] = useState('')
@@ -108,8 +110,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
       updatePayload.current_season = season
       updatePayload.current_episode = episode
 
-      // Calculate progress from season/episode
-      if (season && episode && e.external_id) {
+      // Calculate progress from season/episode (TMDB ids only — MAL anime ids would match the wrong show)
+      if (season && episode && e.external_id && e.external_source === 'tmdb') {
         const calculatedProgress = await calculateTVProgressFromSeason(e.external_id, season, episode)
         if (calculatedProgress !== null && calculatedProgress > 0) {
           updatePayload.progress_current = calculatedProgress
@@ -244,6 +246,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
     setUpdatingDetails(true)
 
     const metadata = { ...entry.metadata } as Record<string, unknown>
+    let fetchedCover: string | null = null
 
     try {
       if (entry.hobby_category === 'games') {
@@ -256,6 +259,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
         if (details.publishers) metadata.publishers = details.publishers
         if (details.platforms) metadata.platforms = details.platforms
         if (details.rating) metadata.rating = details.rating
+        if (details.cover_url) fetchedCover = details.cover_url
         if (hltbData?.mainPlus != null) {
           metadata.time_to_beat = hltbData.mainPlus
           setTimeToBeat(String(hltbData.mainPlus))
@@ -266,29 +270,52 @@ export default function EntryDetailClient({ id }: { id: string }) {
         if (details.studios) metadata.studios = details.studios
         if (details.rating) metadata.rating = details.rating
         if (details.streaming) metadata.streaming = details.streaming
+        if (details.cover_url) fetchedCover = details.cover_url
       } else if (entry.hobby_category === 'tv') {
-        const details = await fetchTMDBTVDetails(entry.external_id)
-        if (details.creator) metadata.creator = details.creator
-        if (details.networks) metadata.networks = details.networks
-        if (details.rating) metadata.rating = details.rating
-        if (details.streaming) metadata.streaming = details.streaming
+        if (entry.external_source === 'myanimelist') {
+          // MAL-imported anime carry a MAL id, not a TMDB id — use Jikan
+          const details = await fetchJikanAnimeDetails(entry.external_id)
+          if (details.studios) metadata.networks = details.studios
+          if (details.rating) metadata.rating = details.rating
+          if (details.episodeRuntime) metadata.episode_runtime = details.episodeRuntime
+          if (details.episodes) metadata.episodes = details.episodes
+          if (details.cover_url) fetchedCover = details.cover_url
+        } else {
+          const details = await fetchTMDBTVDetails(entry.external_id)
+          if (details.creator) metadata.creator = details.creator
+          if (details.networks) metadata.networks = details.networks
+          if (details.rating) metadata.rating = details.rating
+          if (details.streaming) metadata.streaming = details.streaming
+          if (details.cover_url) fetchedCover = details.cover_url
+        }
       } else if (entry.hobby_category === 'books') {
         if (entry.book_subtype === 'manga') {
           const details = await fetchJikanDetails(entry.external_id)
           if (details.author) metadata.author = details.author
           if (details.rating) metadata.rating = details.rating
           if (details.chapters) metadata.chapters = details.chapters
+          if (details.volumes) metadata.volumes = details.volumes
+          if (details.cover_url) fetchedCover = details.cover_url
         } else {
           const details = await fetchOpenLibraryDetails(entry.external_id)
           if (details.author) metadata.author = details.author
           if (details.publisher) metadata.publisher = details.publisher
+          if (details.cover_url) fetchedCover = details.cover_url
         }
       }
 
       const updatePayload: Record<string, unknown> = { metadata_patch: metadata }
+      // Fill in cover art if the entry doesn't have any (e.g. MAL imports)
+      if (fetchedCover && !entry.cover_url) {
+        updatePayload.cover_url = fetchedCover
+      }
       // For manga, also update progress_total to the latest chapter count
       if (entry.hobby_category === 'books' && entry.book_subtype === 'manga' && (metadata.chapters as number) > 0) {
         updatePayload.progress_total = metadata.chapters
+      }
+      // Same for MAL anime episode counts
+      if (entry.hobby_category === 'tv' && entry.external_source === 'myanimelist' && (metadata.episodes as number) > 0) {
+        updatePayload.progress_total = metadata.episodes
       }
 
       const updated = await updateEntry(entry.id, updatePayload)
@@ -316,7 +343,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 32 }}>
         {/* Cover */}
         <div>
-          <div style={{ aspectRatio: '2/3', marginBottom: 16, background: 'var(--bg-card)', border: `1px solid ${hobby.accent}44`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ aspectRatio: '2/3', marginBottom: 8, background: 'var(--bg-card)', border: `1px solid ${hobby.accent}44`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {entry.cover_url ? (
               <img src={entry.cover_url} alt={entry.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
@@ -325,6 +352,54 @@ export default function EntryDetailClient({ id }: { id: string }) {
               </div>
             )}
           </div>
+
+          {/* Cover editor */}
+          {editingCover ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+              <input
+                autoFocus
+                value={coverInput}
+                onChange={(e) => setCoverInput(e.target.value)}
+                placeholder="Paste image URL…"
+                style={{ ...inp, width: '100%' }}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const updated = await updateEntry(entry.id, { cover_url: coverInput.trim() || null })
+                    setEntry(updated)
+                    setEditingCover(false)
+                  }
+                  if (e.key === 'Escape') setEditingCover(false)
+                }}
+              />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={async () => {
+                    const updated = await updateEntry(entry.id, { cover_url: coverInput.trim() || null })
+                    setEntry(updated)
+                    setEditingCover(false)
+                  }}
+                  style={{ flex: 1, padding: '6px 10px', background: `${hobby.accent}22`, border: `1px solid ${hobby.accent}`, color: hobby.accent, fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', cursor: 'pointer' }}
+                >
+                  SAVE
+                </button>
+                <button
+                  onClick={() => setEditingCover(false)}
+                  style={{ flex: 1, padding: '6px 10px', background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', cursor: 'pointer' }}
+                >
+                  CANCEL
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setCoverInput(entry.cover_url ?? ''); setEditingCover(true) }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', marginBottom: 16, padding: '6px 10px', background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', cursor: 'pointer', transition: 'all 0.12s ease' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = hobby.accent; e.currentTarget.style.borderColor = hobby.accent }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.borderColor = 'var(--border-dim)' }}
+            >
+              <ImageIcon size={12} /> {entry.cover_url ? 'CHANGE COVER' : 'SET COVER'}
+            </button>
+          )}
 
           {entry.metadata && Object.keys(entry.metadata).length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: `1px solid ${hobby.accent}33`, borderLeft: `3px solid ${hobby.accent}`, padding: 12 }}>

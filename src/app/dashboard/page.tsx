@@ -9,11 +9,12 @@ import { getAllEntries, ENTRIES_CHANGED_EVENT } from '@/lib/db'
 import { HOBBIES, HOBBY_MAP, STATUS_LABELS } from '@/lib/hobbies'
 import type { Entry, EntryStatus } from '@/types/database'
 import { useHobbies } from '@/components/HobbyContext'
+import { calcHours } from '@/lib/hours'
 import { ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react'
 
 const HOBBY_PATHS: Record<string, string> = {
   games: '/games', movies: '/movies', tv: '/tv', books: '/books',
-  gundams: '/gundams', sports: '/sports', art: '/art',
+  gundams: '/gundams', fitness: '/fitness', art: '/art',
 }
 
 type StatFilter = 'all' | 'in_progress' | 'completed' | 'backlog' | null
@@ -60,25 +61,9 @@ export default function DashboardPage() {
   const completed  = entries.filter((e) => e.status === 'completed')
   const backlog    = entries.filter((e) => e.status === 'backlog')
 
-  // Calculate total hours for games and time-based media
-  const calculateHours = (items: Entry[]) => {
-    let totalHours = 0
-    items.forEach((e) => {
-      if (e.hobby_category === 'games' && e.metadata?.time_to_beat) {
-        totalHours += Number(e.metadata.time_to_beat) || 0
-      } else if ((e.hobby_category === 'movies' || (e.hobby_category === 'books' && e.book_subtype === 'audiobook')) && e.progress_total) {
-        totalHours += Math.round(e.progress_total / 60 * 10) / 10 // convert minutes to hours
-      } else if (e.hobby_category === 'tv' && e.progress_current) {
-        // TV shows: use actual episode runtime from metadata, fallback to 22 min estimate
-        const minPerEpisode = (e.metadata?.episode_runtime as number) || 22
-        totalHours += Math.round((e.progress_current * minPerEpisode) / 60 * 10) / 10
-      }
-    })
-    return totalHours
-  }
-
-  const backlogHours = calculateHours(backlog)
-  const activeHours = calculateHours([...inProgress, ...completed])
+  // Backlog = full remaining length; active = time actually spent (TV counts watched episodes)
+  const backlogHours = calcHours(backlog, 'full')
+  const activeHours = calcHours([...inProgress, ...completed], 'spent')
 
   // Stat card click: toggle or switch filter
   function handleStatClick(key: StatFilter) {

@@ -26,13 +26,13 @@ function ApiCard({
   keyLabel: string
   href: string
   accent: string
-  icon: React.ComponentType<{ size?: number }>
+  icon: React.ComponentType<{ size?: number; color?: string }>
 }) {
   return (
     <div style={{ padding: '1px', clipPath: CLIP, background: `${accent}44` }}>
       <div style={{ background: 'var(--bg-card)', clipPath: CLIP, padding: '16px 20px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         <div style={{ width: 36, height: 36, borderRadius: 6, background: `${accent}22`, border: `1px solid ${accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={18} style={{ color: accent }} />
+          <Icon size={18} color={accent} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
