@@ -10,11 +10,11 @@ import { HOBBIES } from '@/lib/hobbies'
 import { useHobbies } from '@/components/HobbyContext'
 import AvatarCropModal from '@/components/AvatarCropModal'
 import {
-  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
 } from 'lucide-react'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
-  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
 }
 
 export default function SettingsPage() {

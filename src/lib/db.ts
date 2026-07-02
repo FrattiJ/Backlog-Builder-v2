@@ -81,6 +81,10 @@ async function migrate(db: Database) {
   await db.execute(`UPDATE entries SET hobby_category = 'books', book_subtype = 'audiobook' WHERE hobby_category = 'audiobooks'`)
   await db.execute(`UPDATE entries SET hobby_category = 'books', book_subtype = 'manga'     WHERE hobby_category = 'manga'`)
 
+  // Migrate sports → fitness (category rename), including the enabled-hobbies JSON list
+  await db.execute(`UPDATE entries SET hobby_category = 'fitness' WHERE hobby_category = 'sports'`)
+  await db.execute(`UPDATE profile SET enabled_hobbies = REPLACE(enabled_hobbies, '"sports"', '"fitness"') WHERE enabled_hobbies IS NOT NULL`)
+
   // Add tracked-categories column to existing DBs (null = first-run selector not yet completed)
   try { await db.execute('ALTER TABLE profile ADD COLUMN enabled_hobbies TEXT') } catch {}
 

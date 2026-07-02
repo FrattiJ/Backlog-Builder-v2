@@ -7,11 +7,11 @@ import { CLIP } from './MechCard'
 import type { HobbyCategory } from '@/types/database'
 import { useHobbies } from './HobbyContext'
 import {
-  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
 } from 'lucide-react'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
-  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
 }
 
 interface QuickAddPanelProps {

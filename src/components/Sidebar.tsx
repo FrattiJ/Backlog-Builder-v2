@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Gamepad2, Film, Tv,
-  BookOpen, Bot, Trophy, Palette, BarChart2, Search,
+  BookOpen, Bot, Dumbbell, Palette, BarChart2, Search,
   Settings, SlidersHorizontal, Plus, Clock, Download,
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
@@ -15,12 +15,12 @@ import QuickLogModal from './QuickLogModal'
 import { useHobbies } from './HobbyContext'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
-  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
 }
 
 const HOBBY_PATHS: Record<string, string> = {
   games: '/games', movies: '/movies', tv: '/tv', books: '/books',
-  gundams: '/gundams', sports: '/sports', art: '/art',
+  gundams: '/gundams', fitness: '/fitness', art: '/art',
 }
 
 interface NavItemProps {

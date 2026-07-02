@@ -39,17 +39,30 @@ function sortValue(e: Entry, by: SortOption): string | number | null {
   return e.updated_at // recent
 }
 
+// Filters survive navigating away and back during a session (cleared on app restart)
+interface SavedFilters {
+  status?: EntryStatus | 'all'
+  subtype?: BookSubtype | 'all'
+  sortBy?: SortOption
+  sortDir?: 'asc' | 'desc'
+}
+
+function loadSavedFilters(hobbyId: string): SavedFilters {
+  if (typeof window === 'undefined') return {}
+  try { return JSON.parse(sessionStorage.getItem(`hobby-filters:${hobbyId}`) ?? '{}') } catch { return {} }
+}
+
 export default function HobbyPage({ hobbyId }: { hobbyId: HobbyCategory }) {
   const hobby = HOBBY_MAP[hobbyId]
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [statusFilter, setStatusFilter] = useState<EntryStatus | 'all'>('all')
-  const [subtypeFilter, setSubtypeFilter] = useState<BookSubtype | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<EntryStatus | 'all'>(() => loadSavedFilters(hobbyId).status ?? 'all')
+  const [subtypeFilter, setSubtypeFilter] = useState<BookSubtype | 'all'>(() => loadSavedFilters(hobbyId).subtype ?? 'all')
   const [search, setSearch] = useState('')
   const [rankMode, setRankMode] = useState(false)
-  const [sortBy, setSortBy] = useState<SortOption>('recent')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [sortBy, setSortBy] = useState<SortOption>(() => loadSavedFilters(hobbyId).sortBy ?? 'recent')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(() => loadSavedFilters(hobbyId).sortDir ?? 'desc')
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [draftPos, setDraftPos] = useState<{ id: string; val: string } | null>(null)
@@ -59,6 +72,14 @@ export default function HobbyPage({ hobbyId }: { hobbyId: HobbyCategory }) {
   }, [hobbyId])
 
   useEffect(() => { loadEntries() }, [loadEntries])
+
+  // Persist filters so they survive navigating to an entry and back
+  useEffect(() => {
+    sessionStorage.setItem(
+      `hobby-filters:${hobbyId}`,
+      JSON.stringify({ status: statusFilter, subtype: subtypeFilter, sortBy, sortDir })
+    )
+  }, [hobbyId, statusFilter, subtypeFilter, sortBy, sortDir])
 
   // Refresh when entries change anywhere (sidebar quick add, quick log, etc.)
   useEffect(() => {

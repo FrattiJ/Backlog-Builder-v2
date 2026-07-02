@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
 import {
-  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
 } from 'lucide-react'
 import { HOBBIES } from '@/lib/hobbies'
 import { CLIP } from './MechCard'
 import type { HobbyCategory } from '@/types/database'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
-  Gamepad2, Film, Tv, BookOpen, Bot, Trophy, Palette,
+  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
 }
 
 export default function OnboardingSelector({ onComplete }: { onComplete: (ids: HobbyCategory[]) => void }) {
