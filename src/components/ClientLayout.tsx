@@ -10,6 +10,7 @@ import { HOBBIES } from '@/lib/hobbies'
 import { HobbyContext } from './HobbyContext'
 import OnboardingSelector from './OnboardingSelector'
 import OnboardingInstructions from './OnboardingInstructions'
+import UpdateBanner from './UpdateBanner'
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -164,6 +165,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </svg>
 
         {/* ── App chrome ───────────────────────────────────────────────────── */}
+        <UpdateBanner />
         <Sidebar profile={profile} />
 
         <main

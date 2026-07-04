@@ -17,6 +17,8 @@
     "store:allow-keys",
     "shell:allow-open",
     "http:default",
+    "updater:default",
+    "process:allow-restart",
     {
       "identifier": "http:allow-fetch",
       "allow": [

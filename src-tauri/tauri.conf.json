@@ -29,6 +29,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -40,6 +41,12 @@
   "plugins": {
     "sql": {
       "preloadConnections": ["sqlite:hobbylog.db"]
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDNzM1QzI4NjdBMUNDRjEKUldUeHpLRm5LRnh6N0c2R1k1SEVXNktrUlh4aU1Xc1hqdzk0dlhjYnp0TzdKRHgxRnU1ak81bDYK",
+      "endpoints": [
+        "https://github.com/FrattiJ/Backlog-Builder-v2/releases/latest/download/latest.json"
+      ]
     }
   }
 }

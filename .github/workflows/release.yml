@@ -1,0 +1,43 @@
+# Builds and publishes a signed Windows release whenever a version tag is pushed.
+# Usage: bump "version" in src-tauri/tauri.conf.json, commit, then:
+#   git tag v0.2.0 && git push origin v0.2.0
+# Requires the TAURI_SIGNING_PRIVATE_KEY repository secret (contents of ~/.tauri/hobbylog.key).
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Hobbylog ${{ github.ref_name }}'
+          releaseBody: 'Download the .exe installer below to install. Existing installs update automatically.'
+          releaseDraft: false
+          prerelease: false
