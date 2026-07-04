@@ -23,6 +23,15 @@ export async function setApiKey(key: string, value: string) {
   await store.set(key, value)
 }
 
+// Phone-companion sync target (see src/lib/sync.ts). Unset = sync disabled.
+export async function getSyncConfig(): Promise<{ supabaseUrl: string; supabaseAnonKey: string }> {
+  const store = await getStore()
+  return {
+    supabaseUrl: ((await store.get<string>('supabaseUrl')) ?? '').trim().replace(/\/+$/, ''),
+    supabaseAnonKey: ((await store.get<string>('supabaseAnonKey')) ?? '').trim(),
+  }
+}
+
 // ── RAWG search ──────────────────────────────────────────────────────────────
 
 export async function searchIGDB(query: string) {

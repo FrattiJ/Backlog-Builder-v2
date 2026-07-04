@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Sidebar from './Sidebar'
 import type { Profile, HobbyCategory } from '@/types/database'
 import { getProfile, setEnabledHobbies, PROFILE_CHANGED_EVENT } from '@/lib/db'
+import { syncWithPhone } from '@/lib/sync'
 import { syncSteamPlaytime } from '@/lib/steam'
 import { getTheme, applyTheme } from '@/lib/theme'
 import { HOBBIES } from '@/lib/hobbies'
@@ -36,6 +37,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     applyTheme(getTheme())
     loadProfile()
+    // Background: drain phone quick-adds/logs from Supabase (no-op if unconfigured)
+    syncWithPhone()
     // Background: refresh Steam playtime once per app launch (no-op without saved credentials)
     syncSteamPlaytime()
       .then((n) => { if (n) console.log(`[Steam] Synced playtime for ${n} game${n === 1 ? '' : 's'}`) })

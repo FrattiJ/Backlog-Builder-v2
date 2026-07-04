@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0f">
+<title>Hobbylog Companion</title>
+<style>
+  :root {
+    --bg-base: #0a0a0f;
+    --bg-card: #12121a;
+    --border-dim: rgba(255,255,255,0.08);
+    --text-hi: #e8e8f0;
+    --text-mid: #a0a0b0;
+    --text-dim: #6b7280;
+    --accent: #7c3aed;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg-base);
+    color: var(--text-hi);
+    font-family: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+    min-height: 100vh;
+    background-image:
+      linear-gradient(var(--border-dim) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-dim) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+  .clip { clip-path: polygon(10px 0%, 100% 0%, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0% 100%, 0% 10px); }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .brand { font-size: 11px; letter-spacing: 0.25em; color: var(--text-dim); }
+  .brand b { color: var(--text-hi); display: block; font-size: 16px; letter-spacing: 0.12em; margin-top: 2px; }
+  .gear { background: none; border: 1px solid var(--border-dim); color: var(--text-dim); padding: 8px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
+
+  .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; margin-right: 6px; animation: blink 1.5s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0.3 } }
+
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+  .tab {
+    padding: 12px; text-align: center; font-family: inherit; font-size: 13px; font-weight: 700;
+    letter-spacing: 0.15em; cursor: pointer; background: var(--bg-card);
+    border: 1px solid var(--border-dim); color: var(--text-dim);
+  }
+  .tab.active { border-color: var(--accent); border-left: 3px solid var(--accent); color: var(--accent); background: rgba(124,58,237,0.12); }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border-dim); padding: 16px; margin-bottom: 14px; }
+  label { display: block; font-size: 10px; letter-spacing: 0.2em; color: var(--text-dim); margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  input, textarea {
+    width: 100%; background: var(--bg-base); border: 1px solid var(--border-dim);
+    border-left: 2px solid var(--accent); color: var(--text-hi); padding: 12px;
+    font-family: inherit; font-size: 15px; outline: none;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 9px 12px; font-family: inherit; font-size: 12px; letter-spacing: 0.1em;
+    background: transparent; border: 1px solid var(--border-dim); color: var(--text-dim); cursor: pointer;
+  }
+  .chip.active { background: color-mix(in srgb, var(--chip-accent) 15%, transparent); border-color: var(--chip-accent); border-left: 3px solid var(--chip-accent); color: var(--chip-accent); }
+
+  .btn {
+    width: 100%; padding: 15px; margin-top: 18px; font-family: inherit; font-size: 15px; font-weight: 700;
+    letter-spacing: 0.15em; cursor: pointer; color: var(--accent);
+    background: rgba(124,58,237,0.15); border: 1px solid var(--accent); border-left: 3px solid var(--accent);
+  }
+  .btn:disabled { opacity: 0.4; }
+  .btn.green { color: #22c55e; background: rgba(34,197,94,0.12); border-color: #22c55e; }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--bg-card); border: 1px solid #22c55e; border-left: 3px solid #22c55e;
+    color: #22c55e; padding: 12px 20px; font-size: 12px; letter-spacing: 0.1em;
+    opacity: 0; transition: opacity 0.25s ease; pointer-events: none; white-space: nowrap; z-index: 50;
+  }
+  .toast.show { opacity: 1; }
+  .toast.err { border-color: #ef4444; color: #ef4444; }
+
+  .results { max-height: 300px; overflow-y: auto; margin-top: 8px; }
+  .result {
+    padding: 12px; border: 1px solid var(--border-dim); margin-bottom: 6px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  }
+  .result.selected { border-color: var(--accent); border-left: 3px solid var(--accent); background: rgba(124,58,237,0.1); }
+  .result .t { font-size: 14px; color: var(--text-hi); }
+  .result .m { font-size: 10px; color: var(--text-dim); letter-spacing: 0.1em; margin-top: 3px; }
+  .hint { font-size: 11px; color: var(--text-dim); line-height: 1.6; margin-top: 10px; }
+  .pending { font-size: 10px; color: var(--text-dim); letter-spacing: 0.15em; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">FIELD UNIT /<b>HOBBYLOG</b></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="pending" id="pending"></span>
+      <button class="gear" id="gearBtn">CONFIG</button>
+    </div>
+  </header>
+
+  <!-- Setup view -->
+  <div id="setupView" style="display:none">
+    <div class="card clip">
+      <label>SUPABASE PROJECT URL</label>
+      <input id="cfgUrl" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off">
+      <label>ANON KEY</label>
+      <input id="cfgKey" type="password" placeholder="eyJhbGciOi…" autocomplete="off">
+      <p class="hint">Both values also go into the desktop app under Settings → API Keys → Phone Sync. They're stored only on this phone.</p>
+      <button class="btn" id="cfgSave">SAVE & CONNECT</button>
+    </div>
+  </div>
+
+  <!-- Main view -->
+  <div id="mainView" style="display:none">
+    <div class="tabs">
+      <button class="tab active" id="tabAdd">+ ADD</button>
+      <button class="tab" id="tabLog">◷ LOG</button>
+    </div>
+
+    <!-- ADD -->
+    <div id="addView">
+      <div class="card clip">
+        <label>CATEGORY</label>
+        <div class="chips" id="catChips"></div>
+        <label>TITLE</label>
+        <input id="addTitle" type="text" placeholder="Entry title…" autocomplete="off">
+        <label>STATUS</label>
+        <div class="chips" id="statusChips"></div>
+        <label>NOTES (OPTIONAL)</label>
+        <textarea id="addNotes" placeholder="—"></textarea>
+        <button class="btn" id="addBtn">TRANSMIT TO BASE</button>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div id="logView" style="display:none">
+      <div class="card clip">
+        <label>FIND ENTRY</label>
+        <input id="logSearch" type="text" placeholder="Search your library…" autocomplete="off">
+        <div class="results" id="logResults"></div>
+        <div id="logForm" style="display:none">
+          <div class="row2">
+            <div>
+              <label>TIME (MINUTES)</label>
+              <input id="logMinutes" type="number" inputmode="numeric" placeholder="0">
+            </div>
+            <div>
+              <label id="logProgressLabel">PROGRESS +</label>
+              <input id="logProgress" type="number" inputmode="decimal" placeholder="0">
+            </div>
+          </div>
+          <label>NOTES (OPTIONAL)</label>
+          <textarea id="logNotes" placeholder="—"></textarea>
+          <button class="btn green" id="logBtn">LOG SESSION</button>
+        </div>
+        <p class="hint" id="logHint">Library syncs from your desktop app each time you open it. Search for something you're playing, reading, or watching.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const HOBBIES = [
+  { id: 'games',   label: 'GAMES',    accent: '#7c3aed' },
+  { id: 'movies',  label: 'MOVIES',   accent: '#dc2626' },
+  { id: 'tv',      label: 'TV',       accent: '#2563eb' },
+  { id: 'books',   label: 'BOOKS',    accent: '#d97706' },
+  { id: 'gundams', label: 'PROJECTS', accent: '#059669' },
+  { id: 'fitness', label: 'FITNESS',  accent: '#ea580c' },
+  { id: 'art',     label: 'ART',      accent: '#6366f1' },
+];
+const STATUSES = [
+  { id: 'backlog',     label: 'BACKLOG',     accent: '#6b7280' },
+  { id: 'in_progress', label: 'IN PROGRESS', accent: '#0891b2' },
+];
+
+const $ = (id) => document.getElementById(id);
+let cfg = JSON.parse(localStorage.getItem('hobbylog_sync') || 'null');
+let selCat = 'games', selStatus = 'backlog', selEntry = null, library = [];
+
+function api(path, init) {
+  return fetch(cfg.url.replace(/\/+$/, '') + '/rest/v1/' + path, {
+    ...init,
+    headers: {
+      apikey: cfg.key,
+      Authorization: 'Bearer ' + cfg.key,
+      'Content-Type': 'application/json',
+      ...(init && init.headers),
+    },
+  }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
+}
+
+function toast(msg, err) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' err' : '');
+  setTimeout(() => (t.className = 'toast'), 2200);
+}
+
+function showView() {
+  $('setupView').style.display = cfg ? 'none' : 'block';
+  $('mainView').style.display = cfg ? 'block' : 'none';
+  if (cfg) { refreshPending(); loadLibrary(); }
+}
+
+async function refreshPending() {
+  try {
+    const r = await api('inbox?select=id', { headers: { Prefer: 'count=exact' } });
+    const n = (await r.json()).length;
+    $('pending').textContent = n > 0 ? n + ' QUEUED' : '';
+  } catch { /* offline is fine */ }
+}
+
+async function loadLibrary() {
+  try {
+    const r = await api('library?select=*&order=title.asc');
+    library = await r.json();
+  } catch { library = []; }
+}
+
+// ── Config ──
+$('gearBtn').onclick = () => {
+  if (cfg) { $('cfgUrl').value = cfg.url; $('cfgKey').value = cfg.key; }
+  cfg = null;
+  showView();
+};
+$('cfgSave').onclick = async () => {
+  const url = $('cfgUrl').value.trim(), key = $('cfgKey').value.trim();
+  if (!url || !key) return toast('BOTH FIELDS REQUIRED', true);
+  cfg = { url, key };
+  try {
+    await api('library?select=entry_id&limit=1');
+    localStorage.setItem('hobbylog_sync', JSON.stringify(cfg));
+    toast('CONNECTED');
+    showView();
+  } catch {
+    cfg = null;
+    toast('CONNECTION FAILED — CHECK VALUES', true);
+  }
+};
+
+// ── Chips ──
+function renderChips(el, items, sel, onPick) {
+  el.innerHTML = '';
+  for (const it of items) {
+    const b = document.createElement('button');
+    b.className = 'chip' + (it.id === sel ? ' active' : '');
+    b.style.setProperty('--chip-accent', it.accent);
+    b.textContent = it.label;
+    b.onclick = () => onPick(it.id);
+    el.appendChild(b);
+  }
+}
+function renderCat()    { renderChips($('catChips'), HOBBIES, selCat, (id) => { selCat = id; renderCat(); }); }
+function renderStatus() { renderChips($('statusChips'), STATUSES, selStatus, (id) => { selStatus = id; renderStatus(); }); }
+renderCat(); renderStatus();
+
+// ── Tabs ──
+$('tabAdd').onclick = () => { $('tabAdd').classList.add('active'); $('tabLog').classList.remove('active'); $('addView').style.display = 'block'; $('logView').style.display = 'none'; };
+$('tabLog').onclick = () => { $('tabLog').classList.add('active'); $('tabAdd').classList.remove('active'); $('logView').style.display = 'block'; $('addView').style.display = 'none'; loadLibrary(); };
+
+// ── ADD ──
+$('addBtn').onclick = async () => {
+  const title = $('addTitle').value.trim();
+  if (!title) return toast('TITLE REQUIRED', true);
+  $('addBtn').disabled = true;
+  try {
+    await api('inbox', { method: 'POST', body: JSON.stringify({
+      kind: 'add',
+      payload: { title, hobby_category: selCat, status: selStatus, notes: $('addNotes').value.trim() || null },
+    })});
+    $('addTitle').value = ''; $('addNotes').value = '';
+    toast('QUEUED — SYNCS ON DESKTOP LAUNCH');
+    refreshPending();
+  } catch { toast('SEND FAILED — OFFLINE?', true); }
+  $('addBtn').disabled = false;
+};
+
+// ── LOG ──
+$('logSearch').oninput = () => {
+  const q = $('logSearch').value.trim().toLowerCase();
+  const el = $('logResults');
+  el.innerHTML = '';
+  selEntry = null;
+  $('logForm').style.display = 'none';
+  if (q.length < 2) return;
+  const matches = library.filter((e) => e.title.toLowerCase().includes(q)).slice(0, 8);
+  for (const e of matches) {
+    const d = document.createElement('div');
+    d.className = 'result';
+    const cat = HOBBIES.find((h) => h.id === e.hobby_category);
+    d.innerHTML = '<div><div class="t"></div><div class="m">' + (cat ? cat.label : '') + ' · ' + e.status.replace('_', ' ').toUpperCase() +
+      (e.progress_total ? ' · ' + e.progress_current + '/' + e.progress_total : '') + '</div></div>';
+    d.querySelector('.t').textContent = e.title;
+    d.onclick = () => {
+      selEntry = e;
+      for (const r of el.children) r.classList.remove('selected');
+      d.classList.add('selected');
+      $('logForm').style.display = 'block';
+      $('logProgressLabel').textContent = e.hobby_category === 'games' ? 'HOURS PLAYED +' :
+        e.hobby_category === 'tv' ? 'EPISODES +' : e.hobby_category === 'books' ? 'PAGES/CHAPTERS +' : 'PROGRESS +';
+    };
+    el.appendChild(d);
+  }
+  $('logHint').style.display = matches.length ? 'none' : 'block';
+};
+
+$('logBtn').onclick = async () => {
+  if (!selEntry) return;
+  const minutes = parseInt($('logMinutes').value) || null;
+  const progress = parseFloat($('logProgress').value) || null;
+  if (!minutes && !progress) return toast('ENTER TIME OR PROGRESS', true);
+  $('logBtn').disabled = true;
+  try {
+    await api('inbox', { method: 'POST', body: JSON.stringify({
+      kind: 'log',
+      payload: {
+        entry_id: selEntry.entry_id,
+        duration_minutes: minutes,
+        progress: progress,
+        notes: $('logNotes').value.trim() || null,
+        date: new Date().toISOString().split('T')[0],
+      },
+    })});
+    $('logMinutes').value = ''; $('logProgress').value = ''; $('logNotes').value = ''; $('logSearch').value = '';
+    $('logResults').innerHTML = ''; $('logForm').style.display = 'none'; selEntry = null;
+    toast('LOGGED — SYNCS ON DESKTOP LAUNCH');
+    refreshPending();
+  } catch { toast('SEND FAILED — OFFLINE?', true); }
+  $('logBtn').disabled = false;
+};
+
+showView();
+</script>
+</body>
+</html>

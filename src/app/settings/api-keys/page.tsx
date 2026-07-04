@@ -3,24 +3,32 @@
 import { useEffect, useState } from 'react'
 import { Save, ExternalLink, Key } from 'lucide-react'
 import { open } from '@tauri-apps/plugin-shell'
-import { getApiKeys, setApiKey } from '@/lib/apiKeys'
+import { getApiKeys, setApiKey, getSyncConfig } from '@/lib/apiKeys'
 
 interface Keys {
   rawgApiKey: string
   tmdbApiKey: string
+  supabaseUrl: string
+  supabaseAnonKey: string
 }
 
 export default function ApiKeysPage() {
-  const [keys, setKeys] = useState<Keys>({ rawgApiKey: '', tmdbApiKey: '' })
+  const [keys, setKeys] = useState<Keys>({ rawgApiKey: '', tmdbApiKey: '', supabaseUrl: '', supabaseAnonKey: '' })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => { getApiKeys().then(setKeys) }, [])
+  useEffect(() => {
+    Promise.all([getApiKeys(), getSyncConfig()]).then(([api, sync]) => {
+      setKeys({ ...api, ...sync })
+    })
+  }, [])
 
   async function handleSave() {
     setSaving(true)
     await setApiKey('rawgApiKey', keys.rawgApiKey)
     await setApiKey('tmdbApiKey', keys.tmdbApiKey)
+    await setApiKey('supabaseUrl', keys.supabaseUrl)
+    await setApiKey('supabaseAnonKey', keys.supabaseAnonKey)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -80,6 +88,38 @@ export default function ApiKeysPage() {
             <label className="block text-xs font-medium mb-1.5" style={{ color: '#6b7280' }}>API Key (v3)</label>
             <input type="password" value={keys.tmdbApiKey}
               onChange={(e) => setKeys({ ...keys, tmdbApiKey: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-xl text-white text-sm outline-none font-mono"
+              style={inp} placeholder="••••••••••••••••••••••••••••••••" />
+          </div>
+        </div>
+
+        {/* Phone sync (Supabase) */}
+        <div className="rounded-2xl p-6 space-y-4" style={card}>
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="font-semibold text-white">Phone Sync — Supabase</h2>
+              <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
+                Optional. Lets the mobile companion page quick-add entries and log sessions that
+                appear here on next launch. Needs a free Supabase project — see the README.
+              </p>
+            </div>
+            <button onClick={() => open('https://supabase.com/dashboard')}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg hover:bg-white/10"
+              style={{ color: '#3ecf8e', background: 'none', border: 'none', cursor: 'pointer' }}>
+              Dashboard <ExternalLink size={11} />
+            </button>
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: '#6b7280' }}>Project URL</label>
+            <input type="text" value={keys.supabaseUrl}
+              onChange={(e) => setKeys({ ...keys, supabaseUrl: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-xl text-white text-sm outline-none font-mono"
+              style={inp} placeholder="https://xxxx.supabase.co" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: '#6b7280' }}>Anon Key</label>
+            <input type="password" value={keys.supabaseAnonKey}
+              onChange={(e) => setKeys({ ...keys, supabaseAnonKey: e.target.value })}
               className="w-full px-4 py-2.5 rounded-xl text-white text-sm outline-none font-mono"
               style={inp} placeholder="••••••••••••••••••••••••••••••••" />
           </div>
