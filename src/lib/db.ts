@@ -155,17 +155,28 @@ export async function getEntryById(id: string): Promise<Entry | null> {
   return rows[0] ? parseEntry(rows[0]) : null
 }
 
+// New backlog items join at the bottom of the hobby's ranking (max rank + 1)
+async function nextBacklogPriority(db: Database, hobby: HobbyCategory): Promise<number> {
+  const rows = await db.select<{ max_p: number | null }[]>(
+    `SELECT MAX(priority) as max_p FROM entries WHERE hobby_category = $1 AND status = 'backlog'`,
+    [hobby]
+  )
+  return (rows[0]?.max_p ?? 0) + 1
+}
+
 export async function insertEntry(
   data: Omit<Entry, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Entry> {
   const db = await getDb()
   const id = uuid()
   const now = new Date().toISOString()
+  const priority = data.priority
+    ?? (data.status === 'backlog' ? await nextBacklogPriority(db, data.hobby_category) : null)
   await db.execute(
     `INSERT INTO entries (id, hobby_category, title, status, rating, notes, progress_current,
       progress_total, cover_url, external_id, external_source, metadata, book_subtype,
-      date_started, date_completed, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      priority, date_started, date_completed, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
     [
       id, data.hobby_category, data.title, data.status,
       data.rating ?? null, data.notes ?? null,
@@ -173,6 +184,7 @@ export async function insertEntry(
       data.cover_url ?? null, data.external_id ?? null, data.external_source ?? null,
       JSON.stringify(data.metadata ?? {}),
       data.book_subtype ?? null,
+      priority,
       data.date_started ?? null, data.date_completed ?? null,
       now, now,
     ]
@@ -192,6 +204,25 @@ export async function updateEntry(
   data: Partial<Entry> & { metadata_patch?: Record<string, unknown> }
 ): Promise<Entry> {
   const db = await getDb()
+
+  // Keep backlog ranks contiguous across status changes (unless the caller sets priority itself):
+  // leaving the backlog closes the gap it leaves behind; re-entering joins at the bottom.
+  if (data.status !== undefined && data.priority === undefined) {
+    const existing = await getEntryById(id)
+    if (existing && existing.status !== data.status) {
+      if (existing.status === 'backlog' && data.status !== 'backlog') {
+        if (existing.priority != null) {
+          await db.execute(
+            `UPDATE entries SET priority = priority - 1 WHERE hobby_category = $1 AND status = 'backlog' AND priority > $2`,
+            [existing.hobby_category, existing.priority]
+          )
+        }
+        data.priority = null
+      } else if (existing.status !== 'backlog' && data.status === 'backlog') {
+        data.priority = await nextBacklogPriority(db, existing.hobby_category)
+      }
+    }
+  }
 
   if (data.metadata_patch) {
     const existing = await getEntryById(id)
@@ -233,14 +264,22 @@ export async function bulkInsertEntries(
 ): Promise<number> {
   const db = await getDb()
   const now = new Date().toISOString()
+  // Imported backlog items queue at the bottom of each hobby's existing ranking
+  const nextPriority: Partial<Record<HobbyCategory, number>> = {}
   let count = 0
   for (const data of dataList) {
     const id = uuid()
+    let priority = data.priority ?? null
+    if (priority == null && data.status === 'backlog') {
+      nextPriority[data.hobby_category] ??= await nextBacklogPriority(db, data.hobby_category)
+      priority = nextPriority[data.hobby_category]!
+      nextPriority[data.hobby_category]!++
+    }
     await db.execute(
       `INSERT INTO entries (id, hobby_category, title, status, rating, notes, progress_current,
         progress_total, cover_url, external_id, external_source, metadata, book_subtype,
-        date_started, date_completed, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+        priority, date_started, date_completed, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [
         id, data.hobby_category, data.title, data.status,
         data.rating ?? null, data.notes ?? null,
@@ -248,6 +287,7 @@ export async function bulkInsertEntries(
         data.cover_url ?? null, data.external_id ?? null, data.external_source ?? null,
         JSON.stringify(data.metadata ?? {}),
         data.book_subtype ?? null,
+        priority,
         data.date_started ?? null, data.date_completed ?? null,
         now, now,
       ]
@@ -271,7 +311,15 @@ export async function clearAllData(): Promise<void> {
 
 export async function deleteEntry(id: string): Promise<void> {
   const db = await getDb()
+  // Deleting a ranked backlog entry closes the gap it leaves in the ranking
+  const existing = await getEntryById(id)
   await db.execute('DELETE FROM entries WHERE id = $1', [id])
+  if (existing?.status === 'backlog' && existing.priority != null) {
+    await db.execute(
+      `UPDATE entries SET priority = priority - 1 WHERE hobby_category = $1 AND status = 'backlog' AND priority > $2`,
+      [existing.hobby_category, existing.priority]
+    )
+  }
   notifyEntriesChanged()
 }
 
