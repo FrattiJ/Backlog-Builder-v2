@@ -18,8 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Node 24 ships npm 11, matching the npm that generated package-lock.json.
-      # npm 10 (Node 22) disputes the lockfile's bundled wasm optional deps (@emnapi).
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -30,7 +28,10 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - run: npm ci
+      # npm install, not npm ci: npm versions disagree about the lockfile's bundled
+      # wasm optional deps (@emnapi/*, npm/cli bug), so ci's strict sync check fails
+      # depending on the runner's npm version. install honors the lock without the check.
+      - run: npm install
 
       - uses: tauri-apps/tauri-action@v0
         env:
