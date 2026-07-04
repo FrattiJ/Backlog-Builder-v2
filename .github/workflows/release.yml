@@ -12,7 +12,9 @@ on:
 
 jobs:
   release:
-    runs-on: windows-latest
+    # Pinned: windows-latest (2025 image) has a stale MSVC BuildTools registration
+    # that breaks rustc's linker discovery (link.exe not found)
+    runs-on: windows-2022
     permissions:
       contents: write
     steps:
