@@ -24,6 +24,10 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      # Point the build at the runner's actual MSVC install; rustc's auto-detection
+      # can resolve to a stale link.exe path after runner image updates
+      - uses: ilammy/msvc-dev-cmd@v1
+
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
