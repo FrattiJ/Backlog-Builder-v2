@@ -16,6 +16,7 @@ const PAGE_META: Record<string, { title: string; category?: HobbyCategory }> = {
   '/art':               { title: 'ART', category: 'art' },
   '/search':            { title: 'SEARCH' },
   '/stats':             { title: 'STATISTICS' },
+  '/notes':             { title: 'FIELD NOTES' },
   '/settings':          { title: 'SYSTEM SETTINGS' },
   '/settings/api-keys': { title: 'API KEYS' },
   '/entry':             { title: 'RECORD DETAIL' },

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Sidebar from './Sidebar'
 import type { Profile, HobbyCategory } from '@/types/database'
 import { getProfile, setEnabledHobbies, PROFILE_CHANGED_EVENT } from '@/lib/db'
+import { syncSteamPlaytime } from '@/lib/steam'
 import { getTheme, applyTheme } from '@/lib/theme'
 import { HOBBIES } from '@/lib/hobbies'
 import { HobbyContext } from './HobbyContext'
@@ -34,6 +35,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     applyTheme(getTheme())
     loadProfile()
+    // Background: refresh Steam playtime once per app launch (no-op without saved credentials)
+    syncSteamPlaytime()
+      .then((n) => { if (n) console.log(`[Steam] Synced playtime for ${n} game${n === 1 ? '' : 's'}`) })
+      .catch((e) => console.warn('[Steam] Playtime sync failed:', e))
     window.addEventListener(PROFILE_CHANGED_EVENT, loadProfile)
     return () => window.removeEventListener(PROFILE_CHANGED_EVENT, loadProfile)
   }, [loadProfile])

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Gamepad2, Film, Tv,
   BookOpen, Bot, Dumbbell, Palette, BarChart2, Search,
-  Settings, SlidersHorizontal, Plus, Clock, Download,
+  Settings, SlidersHorizontal, Plus, Clock, Download, NotebookPen,
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import { HOBBIES } from '@/lib/hobbies'
@@ -223,6 +223,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
         <NavItem href="/dashboard" icon={LayoutDashboard} label="Dashboard" pathname={pathname} />
         <NavItem href="/search"    icon={Search}          label="Search"    pathname={pathname} />
         <NavItem href="/stats"     icon={BarChart2}        label="Stats"     pathname={pathname} />
+        <NavItem href="/notes"     icon={NotebookPen}      label="Notes"     pathname={pathname} />
 
         <SectionLabel>HOBBIES</SectionLabel>
         {enabledHobbies.map((hobby) => {

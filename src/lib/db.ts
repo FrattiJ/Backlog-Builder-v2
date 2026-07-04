@@ -88,6 +88,15 @@ async function migrate(db: Database) {
   // Add tracked-categories column to existing DBs (null = first-run selector not yet completed)
   try { await db.execute('ALTER TABLE profile ADD COLUMN enabled_hobbies TEXT') } catch {}
 
+  // Persistent freeform notes (single document, saved as HTML)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS app_notes (
+      id INTEGER PRIMARY KEY,
+      content TEXT NOT NULL DEFAULT '',
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+
   // Ensure default profile row
   await db.execute(`INSERT OR IGNORE INTO profile (id, username) VALUES (1, 'You')`)
 }
@@ -321,6 +330,23 @@ export async function deleteEntry(id: string): Promise<void> {
     )
   }
   notifyEntriesChanged()
+}
+
+// ── App notes (persistent freeform document) ─────────────────────────────────
+
+export async function getNotes(): Promise<string> {
+  const db = await getDb()
+  const rows = await db.select<{ content: string }[]>('SELECT content FROM app_notes WHERE id = 1')
+  return rows[0]?.content ?? ''
+}
+
+export async function saveNotes(content: string): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    `INSERT INTO app_notes (id, content, updated_at) VALUES (1, $1, $2)
+     ON CONFLICT(id) DO UPDATE SET content = $1, updated_at = $2`,
+    [content, new Date().toISOString()]
+  )
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────────

@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Upload } from 'lucide-react'
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { getAllEntries, bulkInsertEntries } from '@/lib/db'
+import { fetchSteamLibrary } from '@/lib/steam'
 import { getApiKeys, searchIGDB, jikanFetch, jikanCover } from '@/lib/apiKeys'
 import { searchHLTB } from '@/lib/hltb'
 import type { HobbyCategory, EntryStatus, BookSubtype } from '@/types/database'
@@ -202,57 +202,21 @@ function parseGoodreads(text: string): PreviewEntry[] {
 // ── Steam fetcher ────────────────────────────────────────────────────────────
 
 async function fetchSteam(input: string, key: string): Promise<PreviewEntry[]> {
-  if (!key.trim()) throw new Error('API key is required')
-  let steamId = input.trim()
-  const profileMatch = steamId.match(/\/profiles\/(\d{17})/)
-  const vanityMatch = steamId.match(/\/id\/([^/\s]+)/)
-  if (profileMatch) {
-    steamId = profileMatch[1]
-  } else if (vanityMatch) {
-    let res: Response
-    try {
-      res = await tauriFetch(
-        `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${key}&vanityurl=${vanityMatch[1]}`
-      )
-    } catch (e) {
-      throw new Error(`Fetch error (vanity): ${e instanceof Error ? e.message : String(e)}`)
-    }
-    if (res.status === 403) throw new Error('Invalid API key — double-check the key and wait a few minutes if it was just registered')
-    if (!res.ok) throw new Error(`Steam API returned ${res.status} when resolving profile URL`)
-    const data = await res.json()
-    if (data.response?.success !== 1) throw new Error('Could not find that Steam profile — check the URL is correct')
-    steamId = data.response.steamid
-  }
-  if (!/^\d{17}$/.test(steamId)) throw new Error('Enter your full Steam profile URL (e.g. steamcommunity.com/id/yourname) or your 17-digit Steam ID64')
-
-  let res: Response
-  try {
-    res = await tauriFetch(
-      `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${key}&steamid=${steamId}&include_appinfo=true&format=json`
-    )
-  } catch (e) {
-    throw new Error(`Fetch error (games): ${e instanceof Error ? e.message : String(e)}`)
-  }
-  if (res.status === 403) throw new Error('Invalid API key — double-check the key and wait a few minutes if it was just registered')
-  if (!res.ok) throw new Error(`Steam API returned ${res.status} — check your API key`)
-  const data = await res.json()
-  const games: Array<{ appid: number; name: string; playtime_forever: number }> = data.response?.games
-  if (!games?.length) throw new Error('No games returned — make sure Game Details is set to Public in your Steam Privacy Settings (Profile → Edit Profile → Privacy Settings)')
-
+  const games = await fetchSteamLibrary(input, key)
   return games.map((g) => ({
     title: g.name,
     hobby_category: 'games' as HobbyCategory,
-    status: (g.playtime_forever > 0 ? 'in_progress' : 'backlog') as EntryStatus,
+    status: (g.playtime_hours > 0 ? 'in_progress' : 'backlog') as EntryStatus,
     rating: null,
     notes: null,
-    progress_current: Math.round(g.playtime_forever / 60 * 10) / 10,
+    progress_current: g.playtime_hours,
     progress_total: null,
     external_id: String(g.appid),
     external_source: 'steam',
     cover_url: `https://cdn.akamai.steamstatic.com/steam/apps/${g.appid}/library_600x900.jpg`,
     metadata: {
       steam_appid: g.appid,
-      playtime_hours: Math.round(g.playtime_forever / 60 * 10) / 10,
+      playtime_hours: g.playtime_hours,
     },
     book_subtype: null,
     current_season: null, current_episode: null, priority: null,
