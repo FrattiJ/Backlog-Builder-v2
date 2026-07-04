@@ -6,6 +6,7 @@
     "next-dev": "next dev",
     "dev": "set PATH=%USERPROFILE%\\.cargo\\bin;%PATH% && tauri dev",
     "build": "next build",
+    "tauri": "tauri",
     "tauri-build": "set PATH=%USERPROFILE%\\.cargo\\bin;%PATH% && tauri build",
     "start": "next start",
     "lint": "eslint"
