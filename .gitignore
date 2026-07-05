@@ -37,3 +37,6 @@ next-env.d.ts
 
 # Notes
 todo.txt
+
+# Claude session memory (local only)
+memory/
