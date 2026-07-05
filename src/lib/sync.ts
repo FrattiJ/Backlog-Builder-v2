@@ -80,12 +80,18 @@ async function applyLog(payload: Record<string, unknown>): Promise<void> {
     updatePayload.date_started = date
   }
 
+  // Steam-linked games get authoritative playtime from the Steam sync on every
+  // launch — bumping hours here too would double-count the same play session
+  // (and the Steam sync never lowers hours, so the overcount would stick).
+  const steamLinked = entry.hobby_category === 'games'
+    && (entry.metadata?.steam_appid != null || entry.external_source === 'steam')
+
   // Games track progress in hours; other categories in their own units
   let progressIncrement = progressLogged
   if (entry.hobby_category === 'games' && progressLogged == null && durationMinutes) {
     progressIncrement = Math.round((durationMinutes / 60) * 10) / 10
   }
-  if (progressIncrement && progressIncrement > 0) {
+  if (!steamLinked && progressIncrement && progressIncrement > 0) {
     const effectiveTotal = entry.progress_total
       || (entry.hobby_category === 'movies' ? 100 : null)
       || (entry.hobby_category === 'games' && entry.metadata?.time_to_beat ? Number(entry.metadata.time_to_beat) : null)
