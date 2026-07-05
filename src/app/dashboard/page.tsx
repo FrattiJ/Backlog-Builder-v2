@@ -6,26 +6,46 @@ import EntryCard from '@/components/EntryCard'
 import StatCard from '@/components/StatCard'
 import MechCard from '@/components/MechCard'
 import { getAllEntries, ENTRIES_CHANGED_EVENT } from '@/lib/db'
-import { HOBBIES, HOBBY_MAP, STATUS_LABELS } from '@/lib/hobbies'
-import type { Entry, EntryStatus } from '@/types/database'
+import { STATUS_LABELS, HOBBY_PATHS } from '@/lib/hobbies'
+import type { Entry } from '@/types/database'
 import { useHobbies } from '@/components/HobbyContext'
 import { calcHours } from '@/lib/hours'
 import { ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react'
-
-const HOBBY_PATHS: Record<string, string> = {
-  games: '/games', movies: '/movies', tv: '/tv', books: '/books',
-  gundams: '/gundams', fitness: '/fitness', art: '/art',
-}
 
 type StatFilter = 'all' | 'in_progress' | 'completed' | 'backlog' | null
 type SortField  = 'title' | 'rating' | 'updated' | 'hobby' | 'priority'
 type SortDir    = 'asc' | 'desc'
 
+function SortBtn({ field, label, sortField, sortDir, onToggle }: {
+  field: SortField; label: string; sortField: SortField; sortDir: SortDir; onToggle: (f: SortField) => void
+}) {
+  const active = sortField === field
+  return (
+    <button
+      onClick={() => onToggle(field)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '4px 10px',
+        fontFamily: 'var(--font-mono)', fontSize: 14, letterSpacing: '0.12em',
+        background: active ? 'color-mix(in srgb, var(--text-dim) 20%, transparent)' : 'transparent',
+        border: `1px solid ${active ? 'var(--text-dim)' : 'var(--border-dim)'}`,
+        color: active ? 'var(--text-mid)' : 'var(--text-dim)',
+        cursor: 'pointer', transition: 'all 0.12s ease',
+      }}
+    >
+      {label}
+      {active
+        ? (sortDir === 'asc' ? <ChevronUp size={9} /> : <ChevronDown size={9} />)
+        : <ArrowUpDown size={9} style={{ opacity: 0.4 }} />}
+    </button>
+  )
+}
+
 function StatFilterCard({
-  label, value, accent, index, filterKey, active, onClick,
+  label, value, accent, index, active, onClick,
 }: {
   label: string; value: number; accent: string; index: number
-  filterKey: StatFilter; active: boolean; onClick: () => void
+  active: boolean; onClick: () => void
 }) {
   return (
     <div onClick={onClick} style={{ cursor: 'pointer' }}>
@@ -73,12 +93,10 @@ export default function DashboardPage() {
     setSortDir('desc')
   }
 
-  // Expanded list entries
+  // Expanded list entries (derived from entries directly so the memo deps stay stable)
   const expandedEntries = useMemo(() => {
-    let base = activeFilter === 'all'        ? entries
-             : activeFilter === 'in_progress' ? inProgress
-             : activeFilter === 'completed'   ? completed
-             : activeFilter === 'backlog'     ? backlog
+    let base = activeFilter === 'all' ? entries
+             : activeFilter !== null  ? entries.filter((e) => e.status === activeFilter)
              : []
 
     if (hobbyFilter !== 'all') base = base.filter((e) => e.hobby_category === hobbyFilter)
@@ -113,26 +131,6 @@ export default function DashboardPage() {
     )
   }
 
-  const SortBtn = ({ field, label }: { field: SortField; label: string }) => (
-    <button
-      onClick={() => toggleSort(field)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 4,
-        padding: '4px 10px',
-        fontFamily: 'var(--font-mono)', fontSize: 14, letterSpacing: '0.12em',
-        background: sortField === field ? 'color-mix(in srgb, var(--text-dim) 20%, transparent)' : 'transparent',
-        border: `1px solid ${sortField === field ? 'var(--text-dim)' : 'var(--border-dim)'}`,
-        color: sortField === field ? 'var(--text-mid)' : 'var(--text-dim)',
-        cursor: 'pointer', transition: 'all 0.12s ease',
-      }}
-    >
-      {label}
-      {sortField === field
-        ? (sortDir === 'asc' ? <ChevronUp size={9} /> : <ChevronDown size={9} />)
-        : <ArrowUpDown size={9} style={{ opacity: 0.4 }} />}
-    </button>
-  )
-
   return (
     <div style={{ padding: '32px', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
@@ -144,10 +142,10 @@ export default function DashboardPage() {
 
       {/* ── Clickable stat cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
-        <StatFilterCard label="Total Records"  value={entries.length}    accent="#7c3aed" index={0} filterKey="all"         active={activeFilter === 'all'}         onClick={() => handleStatClick('all')} />
-        <StatFilterCard label="In Progress"    value={inProgress.length} accent="#0891b2" index={1} filterKey="in_progress" active={activeFilter === 'in_progress'} onClick={() => handleStatClick('in_progress')} />
-        <StatFilterCard label="Completed"      value={completed.length}  accent="#22c55e" index={2} filterKey="completed"   active={activeFilter === 'completed'}   onClick={() => handleStatClick('completed')} />
-        <StatFilterCard label="Backlog"        value={backlog.length}    accent="var(--text-dim)" index={3} filterKey="backlog"      active={activeFilter === 'backlog'}     onClick={() => handleStatClick('backlog')} />
+        <StatFilterCard label="Total Records"  value={entries.length}    accent="#7c3aed" index={0} active={activeFilter === 'all'}         onClick={() => handleStatClick('all')} />
+        <StatFilterCard label="In Progress"    value={inProgress.length} accent="#0891b2" index={1} active={activeFilter === 'in_progress'} onClick={() => handleStatClick('in_progress')} />
+        <StatFilterCard label="Completed"      value={completed.length}  accent="#22c55e" index={2} active={activeFilter === 'completed'}   onClick={() => handleStatClick('completed')} />
+        <StatFilterCard label="Backlog"        value={backlog.length}    accent="var(--text-dim)" index={3} active={activeFilter === 'backlog'}     onClick={() => handleStatClick('backlog')} />
       </div>
 
       {/* ── Hours tracking ── */}
@@ -156,7 +154,7 @@ export default function DashboardPage() {
           (Games, Movies, Audiobooks, TV shows @ 22min/ep)
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          <StatCard label="Backlog Hours" value={Math.round(backlogHours * 10) / 10} accent="#6b7280" index={4} />
+          <StatCard label="Backlog Hours" value={Math.round(backlogHours * 10) / 10} accent="var(--text-dim)" index={4} />
           <StatCard label="In Progress + Completed" value={Math.round(activeHours * 10) / 10} accent="#0891b2" index={5} />
         </div>
       </div>
@@ -199,11 +197,11 @@ export default function DashboardPage() {
                 </select>
 
                 {/* Sort buttons */}
-                <SortBtn field="updated" label="RECENT" />
-                <SortBtn field="title"   label="TITLE"  />
-                <SortBtn field="rating"  label="RATING" />
-                <SortBtn field="hobby"   label="TYPE"   />
-                {activeFilter === 'backlog' && <SortBtn field="priority" label="PRIORITY" />}
+                <SortBtn field="updated" label="RECENT" sortField={sortField} sortDir={sortDir} onToggle={toggleSort} />
+                <SortBtn field="title"   label="TITLE"  sortField={sortField} sortDir={sortDir} onToggle={toggleSort} />
+                <SortBtn field="rating"  label="RATING" sortField={sortField} sortDir={sortDir} onToggle={toggleSort} />
+                <SortBtn field="hobby"   label="TYPE"   sortField={sortField} sortDir={sortDir} onToggle={toggleSort} />
+                {activeFilter === 'backlog' && <SortBtn field="priority" label="PRIORITY" sortField={sortField} sortDir={sortDir} onToggle={toggleSort} />}
               </div>
             </div>
 

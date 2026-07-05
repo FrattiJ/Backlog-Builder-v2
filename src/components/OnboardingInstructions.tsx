@@ -1,7 +1,7 @@
 'use client'
 
 import { open } from '@tauri-apps/plugin-shell'
-import { ExternalLink, Gamepad2, Film, Key, Download, Zap, ChevronRight } from 'lucide-react'
+import { ExternalLink, Gamepad2, Film, Zap, ChevronRight } from 'lucide-react'
 import type { HobbyCategory } from '@/types/database'
 import { CLIP } from './MechCard'
 

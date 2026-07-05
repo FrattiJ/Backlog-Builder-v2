@@ -2,16 +2,10 @@
 
 import { useState } from 'react'
 import { Check } from 'lucide-react'
-import {
-  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
-} from 'lucide-react'
 import { HOBBIES } from '@/lib/hobbies'
+import { HOBBY_ICON_MAP } from './hobbyIcons'
 import { CLIP } from './MechCard'
 import type { HobbyCategory } from '@/types/database'
-
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
-  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
-}
 
 export default function OnboardingSelector({ onComplete }: { onComplete: (ids: HobbyCategory[]) => void }) {
   const [selected, setSelected] = useState<HobbyCategory[]>(HOBBIES.map((h) => h.id))
@@ -42,7 +36,7 @@ export default function OnboardingSelector({ onComplete }: { onComplete: (ids: H
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 32 }}>
           {HOBBIES.map((hobby, i) => {
-            const Icon = ICON_MAP[hobby.icon]
+            const Icon = HOBBY_ICON_MAP[hobby.icon]
             const active = selected.includes(hobby.id)
             return (
               <button

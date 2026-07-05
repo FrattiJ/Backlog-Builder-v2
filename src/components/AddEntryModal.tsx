@@ -7,6 +7,7 @@ import { searchIGDB, searchTMDB, fetchTMDBMovieDetails, fetchTMDBTVDetails, fetc
 import { searchHLTB, type HLTBResult } from '@/lib/hltb'
 import { HOBBY_MAP, STATUS_LABELS, BOOK_SUBTYPES, BOOK_SUBTYPE_MAP } from '@/lib/hobbies'
 import { CLIP } from './MechCard'
+import { mechInput } from './mechStyles'
 import type { HobbyCategory, EntryStatus, BookSubtype } from '@/types/database'
 
 interface SearchResult {
@@ -22,6 +23,28 @@ interface AddEntryModalProps {
   hobbyId: HobbyCategory
   onClose: () => void
   onAdded: () => void
+}
+
+function Label({ children }: { children: string }) {
+  return (
+    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6 }}>
+      {children}
+    </p>
+  )
+}
+
+function MechBtn({ active, accent, onClick, children }: { active: boolean; accent: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 14, letterSpacing: '0.1em',
+      background: active ? `${accent}22` : 'transparent',
+      border: `1px solid ${active ? accent : 'var(--border-dim)'}`,
+      borderLeft: active ? `2px solid ${accent}` : '1px solid var(--border-dim)',
+      color: active ? accent : 'var(--text-dim)', cursor: 'pointer', transition: 'all 0.12s ease',
+    }}>
+      {children}
+    </button>
+  )
 }
 
 export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryModalProps) {
@@ -67,7 +90,6 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
 
   const effectiveAccent = hobby.accent
   const progressLabel = subtypeCfg?.progressLabel ?? hobby.progressLabel
-  const progressUnit  = subtypeCfg?.progressUnit  ?? hobby.progressUnit
 
   // When subtype changes, clear search/selection
   function handleSubtypeChange(st: BookSubtype) {
@@ -133,30 +155,28 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
 
     if (r.volumes != null) setVolumeTotal(String(r.volumes))
 
+    // Enrichment details go into a copy — never mutate objects held in state
+    const patch: Partial<SearchResult> = {}
+
     // TV episode count and runtime
     if (hobbyId === 'tv' && r.id) {
       const details = await fetchTMDBTVDetails(r.id)
       if (details.episodes != null) setProgressTotal(String(details.episodes))
-      // Store episode runtime in selected metadata for hour calculations
-      if (details.episodeRuntime) {
-        r.episode_runtime = details.episodeRuntime
-      }
-      // Store additional metadata
-      if (details.creator) r.creator = details.creator
-      if (details.networks) r.networks = details.networks
-      if (details.rating) r.rating = details.rating
-      if (details.streaming) r.streaming = details.streaming
+      if (details.episodeRuntime) patch.episode_runtime = details.episodeRuntime
+      if (details.creator) patch.creator = details.creator
+      if (details.networks) patch.networks = details.networks
+      if (details.rating) patch.rating = details.rating
+      if (details.streaming) patch.streaming = details.streaming
     }
 
     // Movie runtime (in minutes)
     if (hobbyId === 'movies' && r.id) {
       const details = await fetchTMDBMovieDetails(r.id)
       if (details.runtime != null) setProgressTotal(String(details.runtime))
-      // Store additional metadata
-      if (details.director) r.director = details.director
-      if (details.studios) r.studios = details.studios
-      if (details.rating) r.rating = details.rating
-      if (details.streaming) r.streaming = details.streaming
+      if (details.director) patch.director = details.director
+      if (details.studios) patch.studios = details.studios
+      if (details.rating) patch.rating = details.rating
+      if (details.streaming) patch.streaming = details.streaming
     }
 
     // Games: time-to-beat and additional metadata
@@ -170,10 +190,9 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
       setFetchingHltb(true)
       if (main !== null) setTimeToBeat(String(main))
 
-      // Fetch RAWG dev/pub details (await as before)
       const details = await fetchRAWGGameDetails(r.id)
-      if (details.developers) r.developers = details.developers
-      if (details.publishers) r.publishers = details.publishers
+      if (details.developers) patch.developers = details.developers
+      if (details.publishers) patch.publishers = details.publishers
 
       // Fetch HLTB in background — replaces pre-filled TTB with accurate data
       searchHLTB(r.title).then(hltbData => {
@@ -185,6 +204,8 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
         }
       }).catch(() => setFetchingHltb(false))
     }
+
+    if (Object.keys(patch).length > 0) setSelected({ ...r, ...patch })
 
     setResults([])
     setQuery('')
@@ -229,36 +250,7 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
     }
   }
 
-  const inp: React.CSSProperties = {
-    background: 'var(--bg-base)',
-    border: '1px solid var(--border-dim)',
-    borderLeft: `2px solid ${effectiveAccent}66`,
-    padding: '8px 12px',
-    color: 'var(--text-hi)',
-    fontSize: 14,
-    fontFamily: 'var(--font-mono)',
-    letterSpacing: '0.04em',
-    outline: 'none',
-    width: '100%',
-  }
-
-  const Label = ({ children }: { children: string }) => (
-    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6 }}>
-      {children}
-    </p>
-  )
-
-  const MechBtn = ({ active, accent: a, onClick, children }: { active: boolean; accent: string; onClick: () => void; children: React.ReactNode }) => (
-    <button onClick={onClick} style={{
-      padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 14, letterSpacing: '0.1em',
-      background: active ? `${a}22` : 'transparent',
-      border: `1px solid ${active ? a : 'var(--border-dim)'}`,
-      borderLeft: active ? `2px solid ${a}` : '1px solid var(--border-dim)',
-      color: active ? a : 'var(--text-dim)', cursor: 'pointer', transition: 'all 0.12s ease',
-    }}>
-      {children}
-    </button>
-  )
+  const inp: React.CSSProperties = { ...mechInput(effectiveAccent), width: '100%' }
 
   return (
     <div

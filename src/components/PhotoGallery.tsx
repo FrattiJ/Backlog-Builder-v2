@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { Upload, Trash2, ImagePlus, X } from 'lucide-react'
 import { insertPhoto, deletePhoto, type Photo } from '@/lib/db'
+import { mechInput } from './mechStyles'
 
 interface PhotoGalleryProps {
   entryId: string
@@ -12,6 +13,57 @@ interface PhotoGalleryProps {
 }
 
 type PhotoType = 'progress' | 'completed'
+
+function PhotoGrid({ items, label, accent, onOpen, onDelete }: {
+  items: Photo[]; label: string; accent: string
+  onOpen: (p: Photo) => void; onDelete: (id: string) => void
+}) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 12 }}>
+        {label}
+      </p>
+      {items.length === 0 ? (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mute)', letterSpacing: '0.1em' }}>NO PHOTOS</p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+          {items.map((photo) => (
+            <div
+              key={photo.id}
+              style={{
+                position: 'relative',
+                aspectRatio: '4/3',
+                background: 'var(--bg-card)',
+                border: `1px solid ${accent}44`,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.filter = `drop-shadow(0 0 6px ${accent}22)` }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${accent}44`; e.currentTarget.style.filter = 'none' }}
+              onClick={() => onOpen(photo)}
+            >
+              <img src={photo.data_url} alt={photo.caption ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {photo.caption && (
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'rgba(0,0,0,0.7)', fontSize: 14, color: 'var(--text-hi)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+                  {photo.caption}
+                </div>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(photo.id) }}
+                style={{ position: 'absolute', top: 4, right: 4, padding: 4, background: '#ef444455', border: 'none', color: '#f87171', cursor: 'pointer', opacity: 0, transition: 'opacity 0.15s ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -72,66 +124,7 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
     onPhotosChange(photos.filter((p) => p.id !== id))
   }
 
-  function PhotoGrid({ items, label }: { items: Photo[]; label: string }) {
-    return (
-      <div style={{ marginBottom: 24 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 12 }}>
-          {label}
-        </p>
-        {items.length === 0 ? (
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mute)', letterSpacing: '0.1em' }}>NO PHOTOS</p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
-            {items.map((photo) => (
-              <div
-                key={photo.id}
-                style={{
-                  position: 'relative',
-                  aspectRatio: '4/3',
-                  background: 'var(--bg-card)',
-                  border: `1px solid ${accent}44`,
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.filter = `drop-shadow(0 0 6px ${accent}22)` }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${accent}44`; e.currentTarget.style.filter = 'none' }}
-                onClick={() => setLightbox(photo)}
-              >
-                <img src={photo.data_url} alt={photo.caption ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                {photo.caption && (
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'rgba(0,0,0,0.7)', fontSize: 14, color: 'var(--text-hi)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
-                    {photo.caption}
-                  </div>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(photo.id) }}
-                  style={{ position: 'absolute', top: 4, right: 4, padding: 4, background: '#ef444455', border: 'none', color: '#f87171', cursor: 'pointer', opacity: 0, transition: 'opacity 0.15s ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
-                >
-                  <Trash2 size={11} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const inp = {
-    background: 'var(--bg-base)',
-    border: '1px solid var(--border-dim)',
-    borderLeft: `2px solid ${accent}66`,
-    padding: '8px 12px',
-    color: 'var(--text-hi)',
-    fontSize: 14,
-    fontFamily: 'var(--font-mono)',
-    letterSpacing: '0.04em',
-    outline: 'none',
-    width: '100%',
-  }
+  const inp = { ...mechInput(accent), width: '100%' }
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -144,10 +137,10 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
       </div>
 
       {/* Progress photos */}
-      <PhotoGrid items={progressPhotos} label="⋯ Progress" />
+      <PhotoGrid items={progressPhotos} label="⋯ Progress" accent={accent} onOpen={setLightbox} onDelete={handleDelete} />
 
       {/* Completed photos */}
-      <PhotoGrid items={completedPhotos} label="✓ Completed" />
+      <PhotoGrid items={completedPhotos} label="✓ Completed" accent={accent} onOpen={setLightbox} onDelete={handleDelete} />
 
       {/* Upload controls */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-dim)', padding: 16, borderLeft: `3px solid ${accent}` }}>
@@ -251,7 +244,7 @@ export default function PhotoGallery({ entryId, accent, photos, onPhotosChange }
                   fontSize: 14,
                   padding: '4px 10px',
                   textTransform: 'uppercase',
-                  background: lightbox.photo_type === 'completed' ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.08)',
+                  background: lightbox.photo_type === 'completed' ? 'rgba(34,197,94,0.15)' : 'color-mix(in srgb, var(--text-hi) 8%, transparent)',
                   color: lightbox.photo_type === 'completed' ? '#22c55e' : 'var(--text-mid)',
                   letterSpacing: '0.1em',
                 }}

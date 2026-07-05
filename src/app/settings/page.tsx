@@ -4,28 +4,23 @@ import { useEffect, useState, useRef } from 'react'
 import { Save, User, Upload, X, Moon, Sun, Check, Trash2 } from 'lucide-react'
 import { getProfile, updateProfile, clearAllData } from '@/lib/db'
 import { CLIP } from '@/components/MechCard'
+import { mechInput } from '@/components/mechStyles'
 import { getTheme, setTheme, type Theme } from '@/lib/theme'
-import type { Profile, HobbyCategory } from '@/types/database'
+import type { HobbyCategory } from '@/types/database'
 import { HOBBIES } from '@/lib/hobbies'
 import { useHobbies } from '@/components/HobbyContext'
 import AvatarCropModal from '@/components/AvatarCropModal'
-import {
-  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
-} from 'lucide-react'
-
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
-  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
-}
+import { HOBBY_ICON_MAP } from '@/components/hobbyIcons'
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<Profile | null>(null)
   const [username, setUsername] = useState('')
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [theme, setThemeState] = useState<Theme>('dark')
+  // Lazy init avoids a sync setState-in-effect just to read localStorage
+  const [theme, setThemeState] = useState<Theme>(() => getTheme())
   const [cropFile, setCropFile] = useState<File | null>(null)
   const [clearConfirm, setClearConfirm] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -42,9 +37,7 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    setThemeState(getTheme())
     getProfile().then((p) => {
-      setProfile(p)
       setUsername(p.username)
       setBio(p.bio ?? '')
       setAvatarUrl(p.avatar_url ?? '')
@@ -87,24 +80,13 @@ export default function SettingsPage() {
     try {
       await updateProfile({ username: username.trim(), bio: bio.trim() || null, avatar_url: avatarUrl || null })
       setMessage({ type: 'success', text: 'Profile updated!' })
-    } catch (e) {
+    } catch {
       setMessage({ type: 'error', text: 'Failed to save.' })
     }
     setSaving(false)
   }
 
-  const inp = {
-    background: 'var(--bg-base)',
-    border: '1px solid var(--border-dim)',
-    borderLeft: '2px solid #7c3aed66',
-    padding: '8px 12px',
-    color: 'var(--text-hi)',
-    fontSize: 14,
-    fontFamily: 'var(--font-mono)',
-    letterSpacing: '0.04em',
-    outline: 'none',
-    width: '100%',
-  }
+  const inp = { ...mechInput('#7c3aed'), width: '100%' }
 
   return (
     <div style={{ padding: 32, maxWidth: 600, margin: '0 auto' }}>
@@ -316,7 +298,7 @@ export default function SettingsPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
             {HOBBIES.map((hobby) => {
-              const Icon = ICON_MAP[hobby.icon]
+              const Icon = HOBBY_ICON_MAP[hobby.icon]
               const active = enabledIds.includes(hobby.id)
               const isLast = enabledIds.length === 1 && active
               return (

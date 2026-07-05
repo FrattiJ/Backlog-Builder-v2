@@ -10,12 +10,9 @@ import { HOBBY_MAP, STATUS_LABELS, STATUS_COLORS, BOOK_SUBTYPE_MAP } from '@/lib
 import { CLIP } from '@/components/MechCard'
 import { openHLTB, searchHLTB } from '@/lib/hltb'
 import { fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, fetchOpenLibraryDetails, fetchJikanDetails, fetchJikanAnimeDetails, calculateTVProgressFromSeason } from '@/lib/apiKeys'
+import { HOBBY_PATHS } from '@/lib/hobbies'
+import { mechInput } from '@/components/mechStyles'
 import type { Entry, Session, EntryStatus } from '@/types/database'
-
-const HOBBY_PATHS: Record<string, string> = {
-  games: '/games', movies: '/movies', tv: '/tv', books: '/books',
-  gundams: '/gundams', fitness: '/fitness', art: '/art',
-}
 
 export default function EntryDetailClient({ id }: { id: string }) {
   const router = useRouter()
@@ -62,6 +59,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
     setLoading(false)
   }, [id])
 
+  // All state updates in load() happen after awaits, never synchronously in the effect
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ padding: 32, textAlign: 'center' }}>Loading…</div>
@@ -75,17 +74,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
     ? Math.round(((parseFloat(progressCurrent) || 0) / effectiveProgressTotal) * 100)
     : null
 
-  const inp = {
-    background: 'var(--bg-base)',
-    border: '1px solid var(--border-dim)',
-    borderLeft: `2px solid ${hobby.accent}66`,
-    padding: '8px 12px',
-    color: 'var(--text-hi)',
-    fontSize: 14,
-    fontFamily: 'var(--font-mono)',
-    letterSpacing: '0.04em',
-    outline: 'none',
-  }
+  const inp = mechInput(hobby.accent)
 
   async function handleSave() {
     if (!entry) return

@@ -93,6 +93,11 @@ export const HOBBY_MAP: Record<HobbyCategory, HobbyConfig> = Object.fromEntries(
   HOBBIES.map((h) => [h.id, h])
 ) as Record<HobbyCategory, HobbyConfig>
 
+// Route for each hobby page (hobby id doubles as the route segment)
+export const HOBBY_PATHS: Record<HobbyCategory, string> = Object.fromEntries(
+  HOBBIES.map((h) => [h.id, `/${h.id}`])
+) as Record<HobbyCategory, string>
+
 // ── Books sub-types ───────────────────────────────────────────────────────────
 
 export interface BookSubtypeConfig {

@@ -248,8 +248,9 @@ export default function ImportPage() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null)
   const [progress, setProgress] = useState(0)
-  const [steamInput, setSteamInput] = useState('')
-  const [steamKey, setSteamKey] = useState('')
+  // Lazy init from localStorage — saved by the last successful Steam fetch
+  const [steamInput, setSteamInput] = useState(() => (typeof window === 'undefined' ? '' : localStorage.getItem('import_steam_profile') ?? ''))
+  const [steamKey, setSteamKey] = useState(() => (typeof window === 'undefined' ? '' : localStorage.getItem('import_steam_key') ?? ''))
   const [fetching, setFetching] = useState(false)
   const [enrichWithRawg, setEnrichWithRawg] = useState(true)
   const [enrichStatus, setEnrichStatus] = useState<{ current: number; total: number } | null>(null)
@@ -257,8 +258,6 @@ export default function ImportPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setSteamInput(localStorage.getItem('import_steam_profile') ?? '')
-    setSteamKey(localStorage.getItem('import_steam_key') ?? '')
     getApiKeys().then((k) => setHasRawgKey(!!k.rawgApiKey))
   }, [])
 
@@ -486,7 +485,7 @@ export default function ImportPage() {
         }}>
           <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
             {[
-              { n: '01', text: <>Go to <span style={{ color: activeAccent }}>steamcommunity.com/dev</span>, click <span style={{ color: 'var(--text-mid)' }}>"by filling out this form"</span>, enter <span style={{ color: 'var(--text-mid)' }}>localhost</span> as the domain name, agree to the terms, and click Register. Copy the key shown.</> },
+              { n: '01', text: <>Go to <span style={{ color: activeAccent }}>steamcommunity.com/dev</span>, click <span style={{ color: 'var(--text-mid)' }}>&quot;by filling out this form&quot;</span>, enter <span style={{ color: 'var(--text-mid)' }}>localhost</span> as the domain name, agree to the terms, and click Register. Copy the key shown.</> },
               { n: '02', text: <>In Steam, go to your <span style={{ color: 'var(--text-mid)' }}>Profile → Edit Profile → Privacy Settings</span>. Set <span style={{ color: 'var(--text-mid)' }}>Game Details</span> to <span style={{ color: 'var(--text-mid)' }}>Public</span>. (My Profile visibility also needs to be Public.)</> },
               { n: '03', text: <>Paste your Steam profile URL below (e.g. <span style={{ color: 'var(--text-mid)' }}>steamcommunity.com/id/yourname</span>) and your API key, then click Fetch Library.</> },
               { n: '04', text: <><span style={{ color: 'var(--text-mid)' }}>Note:</span> New API keys can take a few minutes to activate. If you get an error right after registering, wait 2–3 minutes and try again.</> },

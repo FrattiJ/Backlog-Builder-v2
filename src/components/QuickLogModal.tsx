@@ -140,7 +140,7 @@ export default function QuickLogModal({ onClose, onLogged }: QuickLogModalProps)
           cursor: 'pointer',
           transition: 'all 0.12s ease',
         }}
-        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'color-mix(in srgb, var(--text-hi) 4%, transparent)' }}
         onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
       >
         {entry.cover_url && (

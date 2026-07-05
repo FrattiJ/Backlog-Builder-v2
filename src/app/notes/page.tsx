@@ -65,13 +65,13 @@ export default function NotesPage() {
 
   // Save any pending edits when navigating away
   useEffect(() => {
+    const editor = editorRef.current // stable for the lifetime of the page
     return () => {
-      if (saveTimer.current) {
+      if (saveTimer.current && editor) {
         clearTimeout(saveTimer.current)
-        if (editorRef.current) saveNotes(editorRef.current.innerHTML)
+        saveNotes(editor.innerHTML)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function exec(command: string, value?: string) {

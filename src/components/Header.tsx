@@ -2,18 +2,13 @@
 
 import { usePathname } from 'next/navigation'
 import { BarChart2, Bell, Calendar, ChevronDown } from 'lucide-react'
-import { HOBBY_MAP } from '@/lib/hobbies'
+import { HOBBIES, HOBBY_MAP } from '@/lib/hobbies'
 import type { Profile, HobbyCategory } from '@/types/database'
 
 const PAGE_META: Record<string, { title: string; category?: HobbyCategory }> = {
   '/dashboard':         { title: 'MISSION OVERVIEW' },
-  '/games':             { title: 'VIDEO GAMES', category: 'games' },
-  '/movies':            { title: 'MOVIES', category: 'movies' },
-  '/tv':                { title: 'TV SHOWS', category: 'tv' },
-  '/books':             { title: 'BOOKS', category: 'books' },
-  '/gundams':           { title: 'PROJECTS', category: 'gundams' },
-  '/fitness':           { title: 'FITNESS', category: 'fitness' },
-  '/art':               { title: 'ART', category: 'art' },
+  // Hobby pages derive from the shared config so titles can't drift
+  ...Object.fromEntries(HOBBIES.map((h) => [`/${h.id}`, { title: h.pluralLabel.toUpperCase(), category: h.id }])),
   '/search':            { title: 'SEARCH' },
   '/stats':             { title: 'STATISTICS' },
   '/notes':             { title: 'FIELD NOTES' },

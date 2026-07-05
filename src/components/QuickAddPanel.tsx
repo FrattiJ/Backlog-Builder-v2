@@ -2,17 +2,10 @@
 
 import { useState } from 'react'
 import AddEntryModal from './AddEntryModal'
-import { HOBBIES } from '@/lib/hobbies'
 import { CLIP } from './MechCard'
+import { HOBBY_ICON_MAP } from './hobbyIcons'
 import type { HobbyCategory } from '@/types/database'
 import { useHobbies } from './HobbyContext'
-import {
-  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
-} from 'lucide-react'
-
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
-  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
-}
 
 interface QuickAddPanelProps {
   onClose: () => void
@@ -59,7 +52,7 @@ export default function QuickAddPanel({ onClose, onAdded }: QuickAddPanelProps) 
 
         <div style={{ padding: 8 }}>
           {enabledHobbies.map((hobby) => {
-            const Icon = ICON_MAP[hobby.icon]
+            const Icon = HOBBY_ICON_MAP[hobby.icon]
             return (
               <button
                 key={hobby.id}

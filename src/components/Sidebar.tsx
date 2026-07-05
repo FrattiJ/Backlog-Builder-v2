@@ -4,24 +4,15 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Gamepad2, Film, Tv,
-  BookOpen, Bot, Dumbbell, Palette, BarChart2, Search,
+  LayoutDashboard, BarChart2, Search,
   Settings, SlidersHorizontal, Plus, Clock, Download, NotebookPen,
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
-import { HOBBIES } from '@/lib/hobbies'
+import { HOBBY_PATHS } from '@/lib/hobbies'
+import { HOBBY_ICON_MAP } from './hobbyIcons'
 import QuickAddPanel from './QuickAddPanel'
 import QuickLogModal from './QuickLogModal'
 import { useHobbies } from './HobbyContext'
-
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
-  Gamepad2, Film, Tv, BookOpen, Bot, Dumbbell, Palette,
-}
-
-const HOBBY_PATHS: Record<string, string> = {
-  games: '/games', movies: '/movies', tv: '/tv', books: '/books',
-  gundams: '/gundams', fitness: '/fitness', art: '/art',
-}
 
 interface NavItemProps {
   href: string
@@ -48,7 +39,7 @@ function NavItem({ href, icon: Icon, label, accent, pathname }: NavItemProps) {
         fontWeight: active ? 600 : 400,
         letterSpacing: '0.06em',
         color: active ? 'var(--text-hi)' : 'var(--text-dim)',
-        background: active ? 'rgba(255,255,255,0.04)' : 'transparent',
+        background: active ? 'color-mix(in srgb, var(--text-hi) 4%, transparent)' : 'transparent',
         borderLeft: active ? `3px solid ${color}` : '3px solid transparent',
         transition: 'all 0.15s ease',
         textDecoration: 'none',
@@ -227,7 +218,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
 
         <SectionLabel>HOBBIES</SectionLabel>
         {enabledHobbies.map((hobby) => {
-          const Icon = ICON_MAP[hobby.icon]
+          const Icon = HOBBY_ICON_MAP[hobby.icon]
           if (!Icon) return null
           return (
             <NavItem

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Search } from 'lucide-react'
 import EntryCard from '@/components/EntryCard'
 import type { Entry, HobbyCategory, EntryStatus } from '@/types/database'
-import { HOBBIES, STATUS_LABELS, STATUS_COLORS } from '@/lib/hobbies'
+import { STATUS_LABELS, STATUS_COLORS } from '@/lib/hobbies'
 import { getAllEntries, ENTRIES_CHANGED_EVENT } from '@/lib/db'
 import { useHobbies } from '@/components/HobbyContext'
 
