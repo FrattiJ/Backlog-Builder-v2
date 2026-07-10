@@ -19,6 +19,7 @@ create table public.library (
   status text not null,
   progress_current numeric,
   progress_total numeric,
+  priority integer,
   updated_at timestamptz not null default now()
 );
 

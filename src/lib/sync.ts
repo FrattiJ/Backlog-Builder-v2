@@ -117,6 +117,7 @@ async function pushLibrarySnapshot(cfg: SyncConfig, entries: Entry[]): Promise<v
     status: e.status,
     progress_current: e.progress_current,
     progress_total: e.progress_total,
+    priority: e.priority,
   }))
   for (let i = 0; i < rows.length; i += 500) {
     await sb(cfg, 'library', { method: 'POST', body: JSON.stringify(rows.slice(i, i + 500)) })

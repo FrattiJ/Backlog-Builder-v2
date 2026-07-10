@@ -116,9 +116,10 @@
 
   <!-- Main view -->
   <div id="mainView" style="display:none">
-    <div class="tabs">
+    <div class="tabs" style="grid-template-columns: 1fr 1fr 1fr">
       <button class="tab active" id="tabAdd">+ ADD</button>
       <button class="tab" id="tabLog">◷ LOG</button>
+      <button class="tab" id="tabQueue">≡ QUEUE</button>
     </div>
 
     <!-- ADD -->
@@ -158,6 +159,16 @@
           <button class="btn green" id="logBtn">LOG SESSION</button>
         </div>
         <p class="hint" id="logHint">Library syncs from your desktop app each time you open it. Search for something you're playing, reading, or watching.</p>
+      </div>
+    </div>
+
+    <!-- QUEUE -->
+    <div id="queueView" style="display:none">
+      <div class="card clip">
+        <label>CATEGORY</label>
+        <div class="chips" id="queueChips"></div>
+        <div id="queueList"></div>
+        <p class="hint" id="queueHint">Ranks come from your desktop app — Backlog filter → RANK MODE. The list refreshes each time you open the desktop app.</p>
       </div>
     </div>
   </div>
@@ -261,8 +272,72 @@ function renderStatus() { renderChips($('statusChips'), STATUSES, selStatus, (id
 renderCat(); renderStatus();
 
 // ── Tabs ──
-$('tabAdd').onclick = () => { $('tabAdd').classList.add('active'); $('tabLog').classList.remove('active'); $('addView').style.display = 'block'; $('logView').style.display = 'none'; };
-$('tabLog').onclick = () => { $('tabLog').classList.add('active'); $('tabAdd').classList.remove('active'); $('logView').style.display = 'block'; $('addView').style.display = 'none'; loadLibrary(); };
+function showTab(name) {
+  for (const t of ['Add', 'Log', 'Queue']) {
+    $('tab' + t).classList.toggle('active', t.toLowerCase() === name);
+    $(t.toLowerCase() + 'View').style.display = t.toLowerCase() === name ? 'block' : 'none';
+  }
+}
+$('tabAdd').onclick = () => showTab('add');
+$('tabLog').onclick = () => { showTab('log'); loadLibrary(); };
+$('tabQueue').onclick = async () => { showTab('queue'); await loadLibrary(); renderQueue(); };
+
+// ── QUEUE ──
+let queueCat = 'all';
+
+function queueRow(e, rank) {
+  const cat = HOBBIES.find((h) => h.id === e.hobby_category);
+  const accent = cat ? cat.accent : 'var(--text-dim)';
+  const d = document.createElement('div');
+  d.className = 'result';
+  d.style.cursor = 'default';
+  d.innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;min-width:0">' +
+      (rank != null
+        ? '<span style="flex-shrink:0;min-width:34px;text-align:center;font-size:13px;font-weight:700;padding:4px 0;border:1px solid ' + accent + ';color:' + accent + '">' + rank + '</span>'
+        : '<span style="flex-shrink:0;min-width:34px;text-align:center;font-size:13px;color:var(--text-dim)">—</span>') +
+      '<div style="min-width:0"><div class="t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>' +
+      '<div class="m">' + (cat ? cat.label : '') +
+      (e.status === 'in_progress' && e.progress_total ? ' · ' + e.progress_current + '/' + e.progress_total : '') +
+      '</div></div></div>';
+  d.querySelector('.t').textContent = e.title;
+  return d;
+}
+
+function renderQueue() {
+  // Category chips: ALL + only categories that have backlog/in-progress items
+  const active = library.filter((e) => e.status === 'backlog' || e.status === 'in_progress');
+  const cats = [{ id: 'all', label: 'ALL', accent: '#7c3aed' }]
+    .concat(HOBBIES.filter((h) => active.some((e) => e.hobby_category === h.id)));
+  if (!cats.some((c) => c.id === queueCat)) queueCat = 'all';
+  renderChips($('queueChips'), cats, queueCat, (id) => { queueCat = id; renderQueue(); });
+
+  const el = $('queueList');
+  el.innerHTML = '';
+  const filtered = queueCat === 'all' ? active : active.filter((e) => e.hobby_category === queueCat);
+
+  const inProgress = filtered.filter((e) => e.status === 'in_progress')
+    .sort((a, b) => a.title.localeCompare(b.title));
+  const backlog = filtered.filter((e) => e.status === 'backlog')
+    .sort((a, b) => (a.priority ?? 1e9) - (b.priority ?? 1e9) || a.title.localeCompare(b.title));
+
+  const section = (text) => {
+    const p = document.createElement('p');
+    p.style.cssText = 'font-size:10px;letter-spacing:0.2em;color:var(--text-dim);margin:16px 0 8px';
+    p.textContent = text;
+    el.appendChild(p);
+  };
+
+  if (inProgress.length) {
+    section('▶ CONTINUE — ' + inProgress.length);
+    for (const e of inProgress) el.appendChild(queueRow(e, null));
+  }
+  if (backlog.length) {
+    section('≡ UP NEXT — ' + backlog.length);
+    for (const e of backlog) el.appendChild(queueRow(e, e.priority));
+  }
+  $('queueHint').style.display = (inProgress.length || backlog.length) ? 'none' : 'block';
+}
 
 // ── ADD ──
 $('addBtn').onclick = async () => {
