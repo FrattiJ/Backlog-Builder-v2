@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Star, Plus, Trash2, ArrowLeft, Save, ExternalLink, Image as ImageIcon } from 'lucide-react'
+import { Star, Plus, Trash2, ArrowLeft, Save, ExternalLink, Image as ImageIcon, Pencil, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { getEntryById, updateEntry, deleteEntry, getSessionsByEntry, insertSession, deleteSession, getPhotosByEntry, type Photo } from '@/lib/db'
 import PhotoGallery from '@/components/PhotoGallery'
@@ -32,6 +32,8 @@ export default function EntryDetailClient({ id }: { id: string }) {
   const [currentEpisode, setCurrentEpisode] = useState('')
   const [editingCover, setEditingCover] = useState(false)
   const [coverInput, setCoverInput] = useState('')
+  const [editingReview, setEditingReview] = useState(false)
+  const [reviewDraft, setReviewDraft] = useState('')
 
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0])
   const [sessionHours, setSessionHours] = useState('')
@@ -424,6 +426,76 @@ export default function EntryDetailClient({ id }: { id: string }) {
             </div>
           </div>
 
+          {/* Review card: once completed, the review gets pride of place instead of a cramped form field */}
+          {entry.status === 'completed' && (
+            <div style={{ padding: '1px', clipPath: CLIP, background: '#22c55e55' }}>
+              <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 14, background: '#22c55e', clipPath: 'polygon(0 0, 100% 0, 0 100%)', zIndex: 2 }} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <FileText size={14} style={{ color: '#22c55e' }} />
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-hi)', margin: 0, letterSpacing: '0.1em' }}>FIELD REPORT</h2>
+                    {entry.rating != null && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 14, color: '#d97706' }}>
+                        <Star size={13} fill="#d97706" /> {entry.rating}/10
+                      </span>
+                    )}
+                  </div>
+                  {!editingReview && (
+                    <button
+                      onClick={() => { setReviewDraft(entry.notes ?? ''); setEditingReview(true) }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', color: 'var(--text-dim)', background: 'transparent', border: '1px solid var(--border-dim)', cursor: 'pointer', transition: 'all 0.12s ease' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#22c55e'; e.currentTarget.style.borderColor = '#22c55e' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.borderColor = 'var(--border-dim)' }}
+                    >
+                      <Pencil size={11} /> {entry.notes ? 'EDIT' : 'WRITE REVIEW'}
+                    </button>
+                  )}
+                </div>
+
+                {editingReview ? (
+                  <div>
+                    <textarea
+                      autoFocus
+                      value={reviewDraft}
+                      onChange={(e) => setReviewDraft(e.target.value)}
+                      rows={8}
+                      placeholder="FINAL THOUGHTS, REVIEW…"
+                      style={{ ...inp, resize: 'vertical', width: '100%', lineHeight: 1.7 }}
+                    />
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => setEditingReview(false)}
+                        style={{ padding: '7px 16px', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', color: 'var(--text-dim)', background: 'transparent', border: '1px solid var(--border-dim)', cursor: 'pointer' }}
+                      >
+                        CANCEL
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const updated = await updateEntry(entry.id, { notes: reviewDraft.trim() || null })
+                          setEntry(updated)
+                          setNotes(updated.notes ?? '')
+                          setEditingReview(false)
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid #22c55e', borderLeft: '3px solid #22c55e', cursor: 'pointer' }}
+                      >
+                        <Save size={11} /> SAVE REVIEW
+                      </button>
+                    </div>
+                  </div>
+                ) : entry.notes ? (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-mid)', margin: 0, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                    {entry.notes}
+                  </p>
+                ) : (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-mute)', margin: 0, letterSpacing: '0.06em' }}>
+                    NO REPORT FILED — how was it?
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Edit panel */}
           <div style={{ padding: '1px', clipPath: CLIP, background: `${hobby.accent}55` }}>
             <div style={{ background: 'var(--bg-card)', clipPath: CLIP, width: '100%', padding: 20, display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
@@ -583,13 +655,16 @@ export default function EntryDetailClient({ id }: { id: string }) {
               </div>
             </div>
 
-            <div>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>FIELD NOTES / REVIEW</p>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
-                placeholder="PERSONAL NOTES, REVIEW…"
-                style={{ ...inp, resize: 'none', width: '100%' }}
-              />
-            </div>
+            {/* Completed entries edit their review via the FIELD REPORT card above */}
+            {entry.status !== 'completed' && (
+              <div>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-dim)', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 8, margin: 0 }}>FIELD NOTES / REVIEW</p>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
+                  placeholder="PERSONAL NOTES, REVIEW…"
+                  style={{ ...inp, resize: 'none', width: '100%' }}
+                />
+              </div>
+            )}
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border-dim)', flexWrap: 'wrap' }}>
               <button onClick={handleDeleteEntry}
