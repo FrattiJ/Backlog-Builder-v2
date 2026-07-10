@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Search, Plus } from 'lucide-react'
 import { insertEntry, getNextBacklogRank } from '@/lib/db'
+import { compressImage } from '@/lib/image'
 import { searchIGDB, searchTMDB, fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, searchOpenLibrary, searchJikan } from '@/lib/apiKeys'
 import { searchHLTB, type HLTBResult } from '@/lib/hltb'
 import { HOBBY_MAP, STATUS_LABELS, BOOK_SUBTYPES, BOOK_SUBTYPE_MAP } from '@/lib/hobbies'
@@ -76,6 +77,7 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
   const [fetchingHltb, setFetchingHltb] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const coverFileRef = useRef<HTMLInputElement>(null)
 
   // Derived: does this combination have a search API?
   const apiEndpoint: string | null = (() => {
@@ -506,8 +508,36 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
 
           {/* Cover URL + preview */}
           <div>
-            <Label>COVER IMAGE URL</Label>
-            <input type="url" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="HTTPS://…" style={inp} />
+            <Label>COVER IMAGE</Label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                type="url"
+                value={coverUrl.startsWith('data:') ? '' : coverUrl}
+                onChange={(e) => setCoverUrl(e.target.value)}
+                placeholder={coverUrl.startsWith('data:') ? 'IMAGE UPLOADED ✓ — PASTE URL TO REPLACE' : 'HTTPS://… OR UPLOAD'}
+                style={{ ...inp, flex: 1 }}
+              />
+              <button
+                onClick={() => coverFileRef.current?.click()}
+                style={{ padding: '5px 12px', fontFamily: 'var(--font-mono)', fontSize: 13, letterSpacing: '0.1em', background: 'transparent', border: `1px solid ${effectiveAccent}66`, color: effectiveAccent, cursor: 'pointer', flexShrink: 0 }}
+              >
+                UPLOAD
+              </button>
+              <input
+                ref={coverFileRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    setCoverUrl(await compressImage(file, 600))
+                  } catch { /* keep existing value */ }
+                  if (coverFileRef.current) coverFileRef.current.value = ''
+                }}
+              />
+            </div>
             {coverUrl && (
               <div style={{ marginTop: 8, display: 'inline-block', border: `1px solid ${effectiveAccent}44`, padding: 2 }}>
                 <img src={coverUrl} alt="" style={{ height: 80, display: 'block', objectFit: 'cover' }} />

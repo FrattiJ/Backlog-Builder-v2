@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Star, Plus, Trash2, ArrowLeft, Save, ExternalLink, Image as ImageIcon, Pencil, FileText } from 'lucide-react'
 import Link from 'next/link'
@@ -11,6 +11,7 @@ import { CLIP } from '@/components/MechCard'
 import { openHLTB, searchHLTB } from '@/lib/hltb'
 import { fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, fetchOpenLibraryDetails, fetchJikanDetails, fetchJikanAnimeDetails, calculateTVProgressFromSeason } from '@/lib/apiKeys'
 import { HOBBY_PATHS } from '@/lib/hobbies'
+import { compressImage } from '@/lib/image'
 import { mechInput } from '@/components/mechStyles'
 import type { Entry, Session, EntryStatus } from '@/types/database'
 
@@ -34,6 +35,7 @@ export default function EntryDetailClient({ id }: { id: string }) {
   const [coverInput, setCoverInput] = useState('')
   const [editingReview, setEditingReview] = useState(false)
   const [reviewDraft, setReviewDraft] = useState('')
+  const coverFileRef = useRef<HTMLInputElement>(null)
 
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0])
   const [sessionHours, setSessionHours] = useState('')
@@ -374,12 +376,39 @@ export default function EntryDetailClient({ id }: { id: string }) {
                   SAVE
                 </button>
                 <button
+                  onClick={() => coverFileRef.current?.click()}
+                  style={{ flex: 1, padding: '6px 10px', background: 'transparent', border: `1px solid ${hobby.accent}66`, color: hobby.accent, fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', cursor: 'pointer' }}
+                >
+                  UPLOAD
+                </button>
+                <button
                   onClick={() => setEditingCover(false)}
                   style={{ flex: 1, padding: '6px 10px', background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', cursor: 'pointer' }}
                 >
                   CANCEL
                 </button>
               </div>
+              <input
+                ref={coverFileRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    // Covers render at card size — 600px wide keeps the DB row small
+                    const dataUrl = await compressImage(file, 600)
+                    const updated = await updateEntry(entry.id, { cover_url: dataUrl })
+                    setEntry(updated)
+                    setEditingCover(false)
+                  } catch (err) {
+                    console.error('Cover upload failed:', err)
+                  } finally {
+                    if (coverFileRef.current) coverFileRef.current.value = ''
+                  }
+                }}
+              />
             </div>
           ) : (
             <button
