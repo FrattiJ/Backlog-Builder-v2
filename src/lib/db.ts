@@ -99,6 +99,23 @@ async function migrate(db: Database) {
 
   // Ensure default profile row
   await db.execute(`INSERT OR IGNORE INTO profile (id, username) VALUES (1, 'You')`)
+
+  // Backfill: every backlog entry gets a rank. Entries from before auto-ranking
+  // existed append after the ranked ones, oldest first, per hobby.
+  const unranked = await db.select<{ id: string; hobby_category: string }[]>(
+    `SELECT id, hobby_category FROM entries WHERE status = 'backlog' AND priority IS NULL ORDER BY hobby_category, created_at`
+  )
+  const nextRank: Record<string, number> = {}
+  for (const row of unranked) {
+    if (nextRank[row.hobby_category] == null) {
+      const m = await db.select<{ max_p: number | null }[]>(
+        `SELECT MAX(priority) as max_p FROM entries WHERE hobby_category = $1 AND status = 'backlog'`,
+        [row.hobby_category]
+      )
+      nextRank[row.hobby_category] = (m[0]?.max_p ?? 0) + 1
+    }
+    await db.execute('UPDATE entries SET priority = $1 WHERE id = $2', [nextRank[row.hobby_category]++, row.id])
+  }
 }
 
 function uuid() { return crypto.randomUUID() }
@@ -173,14 +190,34 @@ async function nextBacklogPriority(db: Database, hobby: HobbyCategory): Promise<
   return (rows[0]?.max_p ?? 0) + 1
 }
 
+// For UIs that want to show where a new item will land / validate a chosen rank
+export async function getNextBacklogRank(hobby: HobbyCategory): Promise<number> {
+  return nextBacklogPriority(await getDb(), hobby)
+}
+
 export async function insertEntry(
   data: Omit<Entry, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Entry> {
   const db = await getDb()
   const id = uuid()
   const now = new Date().toISOString()
-  const priority = data.priority
-    ?? (data.status === 'backlog' ? await nextBacklogPriority(db, data.hobby_category) : null)
+  let priority = data.priority ?? null
+  if (data.status === 'backlog') {
+    const next = await nextBacklogPriority(db, data.hobby_category)
+    if (priority == null) {
+      priority = next // default: bottom of the ranking
+    } else {
+      // Explicit rank: clamp to a valid position, then shift everything at or
+      // below it down one (choosing 5 turns old ranks 5..N into 6..N+1)
+      priority = Math.max(1, Math.min(priority, next))
+      if (priority < next) {
+        await db.execute(
+          `UPDATE entries SET priority = priority + 1 WHERE hobby_category = $1 AND status = 'backlog' AND priority >= $2`,
+          [data.hobby_category, priority]
+        )
+      }
+    }
+  }
   await db.execute(
     `INSERT INTO entries (id, hobby_category, title, status, rating, notes, progress_current,
       progress_total, cover_url, external_id, external_source, metadata, book_subtype,

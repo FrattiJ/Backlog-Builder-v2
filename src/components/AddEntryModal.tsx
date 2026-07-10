@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, Search, Plus } from 'lucide-react'
-import { insertEntry } from '@/lib/db'
+import { insertEntry, getNextBacklogRank } from '@/lib/db'
 import { searchIGDB, searchTMDB, fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, searchOpenLibrary, searchJikan } from '@/lib/apiKeys'
 import { searchHLTB, type HLTBResult } from '@/lib/hltb'
 import { HOBBY_MAP, STATUS_LABELS, BOOK_SUBTYPES, BOOK_SUBTYPE_MAP } from '@/lib/hobbies'
@@ -68,6 +68,8 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
   const [volumeCurrent, setVolumeCurrent] = useState('')  // manga only
   const [volumeTotal, setVolumeTotal] = useState('')       // manga only
   const [coverUrl, setCoverUrl] = useState('')
+  const [rank, setRank] = useState('')                    // backlog only; empty = bottom
+  const [nextRank, setNextRank] = useState<number | null>(null)
   const [timeToBeat, setTimeToBeat] = useState('')
   const [igdbTTB, setIgdbTTB] = useState<{ main: number | null; rushed: number | null; complete: number | null } | null>(null)
   const [hltbTTB, setHltbTTB] = useState<HLTBResult | null>(null)
@@ -135,6 +137,11 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query])
+
+  // Where a new backlog item lands by default (shown in the rank field)
+  useEffect(() => {
+    getNextBacklogRank(hobbyId).then(setNextRank).catch(() => {})
+  }, [hobbyId])
 
   async function selectResult(r: SearchResult) {
     setSelected(r)
@@ -238,7 +245,7 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
         book_subtype:     hobbyId === 'books' ? bookSubtype : null,
         current_season:   null,
         current_episode:  null,
-        priority:         null,
+        priority:         status === 'backlog' && rank ? parseInt(rank) : null,
         date_started:     status === 'in_progress' ? new Date().toISOString().split('T')[0] : null,
         date_completed:   status === 'completed'   ? new Date().toISOString().split('T')[0] : null,
       })
@@ -391,6 +398,22 @@ export default function AddEntryModal({ hobbyId, onClose, onAdded }: AddEntryMod
               ))}
             </div>
           </div>
+
+          {/* Backlog rank */}
+          {status === 'backlog' && (
+            <div>
+              <Label>BACKLOG RANK</Label>
+              <input
+                type="number" min={1} max={nextRank ?? undefined} value={rank}
+                onChange={(e) => setRank(e.target.value)}
+                placeholder={nextRank ? `AUTO — #${nextRank} (BOTTOM)` : 'AUTO (BOTTOM)'}
+                style={inp}
+              />
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-mute)', margin: '6px 0 0', letterSpacing: '0.05em' }}>
+                Pick a rank to insert there — everything below shifts down one. Leave empty to queue at the bottom.
+              </p>
+            </div>
+          )}
 
           {/* Rating */}
           <div>
