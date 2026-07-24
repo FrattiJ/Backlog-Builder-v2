@@ -5,7 +5,7 @@
 -- Pending quick-adds and quick-logs captured on mobile, drained by desktop on launch
 create table public.inbox (
   id uuid primary key default gen_random_uuid(),
-  kind text not null check (kind in ('add','log')),
+  kind text not null check (kind in ('add','log','status')),
   payload jsonb not null,
   created_at timestamptz not null default now()
 );

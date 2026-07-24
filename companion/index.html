@@ -285,22 +285,57 @@ $('tabQueue').onclick = async () => { showTab('queue'); await loadLibrary(); ren
 // ── QUEUE ──
 let queueCat = 'all';
 
+// Queue a status change: send to Supabase, then optimistically drop it from the
+// local view (it leaves backlog/in-progress) and re-render.
+async function queueStatus(entry, status) {
+  try {
+    await api('inbox', { method: 'POST', body: JSON.stringify({
+      kind: 'status',
+      payload: { entry_id: entry.entry_id, status },
+    })});
+    const local = library.find((x) => x.entry_id === entry.entry_id);
+    if (local) local.status = status;
+    toast('MARKED ' + status.replace('_', ' ').toUpperCase() + ' — SYNCS ON DESKTOP LAUNCH');
+    refreshPending();
+    renderQueue();
+  } catch { toast('SEND FAILED — OFFLINE?', true); }
+}
+
+function statusBtn(label, color, onClick) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.style.cssText = 'flex:1;padding:7px 4px;font-family:inherit;font-size:11px;letter-spacing:0.08em;background:transparent;border:1px solid ' + color + '55;border-left:2px solid ' + color + ';color:' + color + ';cursor:pointer';
+  b.onclick = onClick;
+  return b;
+}
+
 function queueRow(e, rank) {
   const cat = HOBBIES.find((h) => h.id === e.hobby_category);
   const accent = cat ? cat.accent : 'var(--text-dim)';
   const d = document.createElement('div');
   d.className = 'result';
-  d.style.cursor = 'default';
-  d.innerHTML =
-    '<div style="display:flex;align-items:center;gap:12px;min-width:0">' +
-      (rank != null
-        ? '<span style="flex-shrink:0;min-width:34px;text-align:center;font-size:13px;font-weight:700;padding:4px 0;border:1px solid ' + accent + ';color:' + accent + '">' + rank + '</span>'
-        : '<span style="flex-shrink:0;min-width:34px;text-align:center;font-size:13px;color:var(--text-dim)">—</span>') +
-      '<div style="min-width:0"><div class="t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>' +
-      '<div class="m">' + (cat ? cat.label : '') +
-      (e.status === 'in_progress' && e.progress_total ? ' · ' + e.progress_current + '/' + e.progress_total : '') +
-      '</div></div></div>';
-  d.querySelector('.t').textContent = e.title;
+  d.style.cssText = 'cursor:default;flex-direction:column;align-items:stretch;gap:10px';
+  const head = document.createElement('div');
+  head.style.cssText = 'display:flex;align-items:center;gap:12px;min-width:0';
+  head.innerHTML =
+    (rank != null
+      ? '<span style="flex-shrink:0;min-width:34px;text-align:center;font-size:13px;font-weight:700;padding:4px 0;border:1px solid ' + accent + ';color:' + accent + '">' + rank + '</span>'
+      : '<span style="flex-shrink:0;min-width:34px;text-align:center;font-size:13px;color:var(--text-dim)">—</span>') +
+    '<div style="min-width:0"><div class="t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>' +
+    '<div class="m">' + (cat ? cat.label : '') +
+    (e.status === 'in_progress' && e.progress_total ? ' · ' + e.progress_current + '/' + e.progress_total : '') +
+    '</div></div>';
+  head.querySelector('.t').textContent = e.title;
+  d.appendChild(head);
+
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:6px';
+  if (e.status === 'backlog') {
+    actions.appendChild(statusBtn('▶ START', '#0891b2', () => queueStatus(e, 'in_progress')));
+  }
+  actions.appendChild(statusBtn('✓ DONE', '#22c55e', () => queueStatus(e, 'completed')));
+  actions.appendChild(statusBtn('✕ DROP', '#ef4444', () => queueStatus(e, 'dropped')));
+  d.appendChild(actions);
   return d;
 }
 

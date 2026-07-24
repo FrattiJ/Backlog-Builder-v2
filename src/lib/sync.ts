@@ -10,7 +10,7 @@ import type { Entry, HobbyCategory, EntryStatus } from '@/types/database'
 
 interface InboxRow {
   id: string
-  kind: 'add' | 'log'
+  kind: 'add' | 'log' | 'status'
   payload: Record<string, unknown>
 }
 
@@ -200,6 +200,23 @@ async function applyLog(payload: Record<string, unknown>): Promise<void> {
   }
 }
 
+// Status change from the phone QUEUE. updateEntry already handles backlog rank
+// shifting when status changes; we set the completion/start dates like the desktop does.
+async function applyStatus(payload: Record<string, unknown>): Promise<void> {
+  const entryId = String(payload.entry_id ?? '')
+  const status = payload.status as EntryStatus
+  const entry = entryId ? await getEntryById(entryId) : null
+  if (!entry) throw new Error(`status payload references unknown entry ${entryId}`)
+  if (!['backlog', 'in_progress', 'completed', 'dropped'].includes(status)) {
+    throw new Error(`status payload has invalid status ${status}`)
+  }
+  const today = new Date().toISOString().split('T')[0]
+  const update: Record<string, unknown> = { status }
+  if (status === 'completed' && !entry.date_completed) update.date_completed = today
+  if (status === 'in_progress' && !entry.date_started) update.date_started = today
+  await updateEntry(entry.id, update)
+}
+
 async function pushLibrarySnapshot(cfg: SyncConfig, entries: Entry[]): Promise<void> {
   // Full rewrite each sync: delete everything, insert current state in chunks
   await sb(cfg, 'library?entry_id=not.is.null', { method: 'DELETE' })
@@ -228,10 +245,15 @@ export async function syncWithPhone(): Promise<number | null> {
     let applied = 0
     for (const row of rows) {
       try {
+        let handled = true
         if (row.kind === 'add') await applyAdd(row.payload)
         else if (row.kind === 'log') await applyLog(row.payload)
-        await sb(cfg, `inbox?id=eq.${row.id}`, { method: 'DELETE' })
-        applied++
+        else if (row.kind === 'status') await applyStatus(row.payload)
+        else handled = false // unknown action from a newer phone — leave it for a newer desktop
+        if (handled) {
+          await sb(cfg, `inbox?id=eq.${row.id}`, { method: 'DELETE' })
+          applied++
+        }
       } catch (e) {
         console.error('[sync] failed to apply inbox row', row.id, e)
       }
