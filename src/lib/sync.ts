@@ -1,4 +1,5 @@
-import { getSyncConfig } from './apiKeys'
+import { getSyncConfig, searchIGDB, searchTMDB, fetchTMDBMovieDetails, fetchTMDBTVDetails, fetchRAWGGameDetails, searchOpenLibrary } from './apiKeys'
+import { searchHLTB } from './hltb'
 import { getAllEntries, getEntryById, insertEntry, insertSession, updateEntry } from './db'
 import type { Entry, HobbyCategory, EntryStatus } from '@/types/database'
 
@@ -29,12 +30,104 @@ async function sb(cfg: SyncConfig, path: string, init?: RequestInit): Promise<Re
   return res
 }
 
+interface AddEnrichment {
+  cover_url: string | null
+  external_id: string | null
+  external_source: string | null
+  progress_total: number | null
+  metadata: Record<string, unknown>
+}
+
+const EMPTY_ENRICHMENT: AddEnrichment = { cover_url: null, external_id: null, external_source: null, progress_total: null, metadata: {} }
+
+// Common shape across the search functions (each returns a superset of these)
+interface SearchHit {
+  id: string
+  title: string
+  cover_url?: string | null
+  genres?: string
+  release_year?: number | null
+  platforms?: string
+  rating?: number | null
+  time_to_beat_main?: number | null
+  author?: string | null
+  publisher?: string | null
+  pages?: number | null
+}
+
+// Best-effort metadata lookup for a phone-added entry, mirroring what the desktop
+// add modal fills in when you pick a search result. Degrades silently if the needed
+// API key is missing, the search fails, or nothing matches — the entry keeps its
+// title and can still be enriched later via UPDATE DETAILS on the desktop.
+async function lookupAddMetadata(title: string, hobby: HobbyCategory): Promise<AddEnrichment> {
+  const pick = (results: SearchHit[]): SearchHit | null => {
+    if (!results.length) return null
+    const lower = title.toLowerCase()
+    return results.find((r) => r.title.toLowerCase() === lower) ?? results[0]
+  }
+  try {
+    if (hobby === 'games') {
+      const g = pick(await searchIGDB(title)) // throws without a RAWG key → caught below
+      if (!g) return EMPTY_ENRICHMENT
+      const meta: Record<string, unknown> = {}
+      if (g.genres) meta.genres = g.genres
+      if (g.release_year) meta.release_year = g.release_year
+      if (g.platforms) meta.platforms = g.platforms
+      if (g.rating) meta.rating = g.rating
+      const [details, hltb] = await Promise.all([
+        fetchRAWGGameDetails(g.id).catch(() => null),
+        searchHLTB(title).catch(() => null),
+      ])
+      if (details?.developers) meta.developers = details.developers
+      if (details?.publishers) meta.publishers = details.publishers
+      const ttb = hltb?.mainPlus ?? (typeof g.time_to_beat_main === 'number' ? g.time_to_beat_main : null)
+      if (ttb) meta.time_to_beat = ttb
+      return { cover_url: g.cover_url ?? null, external_id: g.id, external_source: 'rawg', progress_total: null, metadata: meta }
+    }
+    if (hobby === 'movies') {
+      const m = pick(await searchTMDB(title, 'movie'))
+      if (!m) return EMPTY_ENRICHMENT
+      const d = await fetchTMDBMovieDetails(m.id).catch(() => null)
+      const meta: Record<string, unknown> = {}
+      if (d?.director) meta.director = d.director
+      if (d?.studios) meta.studios = d.studios
+      if (d?.rating) meta.rating = d.rating
+      if (d?.streaming) meta.streaming = d.streaming
+      return { cover_url: m.cover_url ?? null, external_id: m.id, external_source: 'tmdb', progress_total: d?.runtime ?? null, metadata: meta }
+    }
+    if (hobby === 'tv') {
+      const t = pick(await searchTMDB(title, 'tv'))
+      if (!t) return EMPTY_ENRICHMENT
+      const d = await fetchTMDBTVDetails(t.id).catch(() => null)
+      const meta: Record<string, unknown> = {}
+      if (d?.creator) meta.creator = d.creator
+      if (d?.networks) meta.networks = d.networks
+      if (d?.rating) meta.rating = d.rating
+      if (d?.streaming) meta.streaming = d.streaming
+      if (d?.episodeRuntime) meta.episode_runtime = d.episodeRuntime
+      return { cover_url: t.cover_url ?? null, external_id: t.id, external_source: 'tmdb', progress_total: d?.episodes ?? null, metadata: meta }
+    }
+    if (hobby === 'books') {
+      const b = pick(await searchOpenLibrary(title))
+      if (!b) return EMPTY_ENRICHMENT
+      const meta: Record<string, unknown> = {}
+      if (b.author) meta.author = b.author
+      if (b.publisher) meta.publisher = b.publisher
+      return { cover_url: b.cover_url ?? null, external_id: b.id, external_source: 'openlibrary', progress_total: b.pages ?? null, metadata: meta }
+    }
+  } catch (e) {
+    console.warn('[sync] metadata lookup failed for phone add:', e)
+  }
+  return EMPTY_ENRICHMENT
+}
+
 async function applyAdd(payload: Record<string, unknown>): Promise<void> {
   const title = String(payload.title ?? '').trim()
   const hobby = payload.hobby_category as HobbyCategory
   if (!title || !hobby) throw new Error('add payload missing title or category')
   const status = (payload.status as EntryStatus) ?? 'backlog'
   const now = new Date().toISOString().split('T')[0]
+  const enrich = await lookupAddMetadata(title, hobby)
   await insertEntry({
     hobby_category: hobby,
     title,
@@ -42,11 +135,11 @@ async function applyAdd(payload: Record<string, unknown>): Promise<void> {
     rating: null,
     notes: (payload.notes as string) || null,
     progress_current: 0,
-    progress_total: null,
-    cover_url: null,
-    external_id: null,
-    external_source: null,
-    metadata: { added_via: 'phone' },
+    progress_total: enrich.progress_total,
+    cover_url: enrich.cover_url,
+    external_id: enrich.external_id,
+    external_source: enrich.external_source,
+    metadata: { added_via: 'phone', ...enrich.metadata },
     book_subtype: hobby === 'books' ? 'book' : null,
     current_season: null,
     current_episode: null,
